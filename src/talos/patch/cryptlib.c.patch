@@ -1,0 +1,290 @@
+--- ./crypto/cryptlib.c	2017-03-08 11:15:50.589467232 +0000
++++ ../talos/./crypto/cryptlib.c	2017-03-08 11:13:57.295755558 +0000
+@@ -128,6 +128,17 @@
+ #include <openssl/safestack.h>
+ #include <openssl/sha.h>
+ 
++#ifdef COMPILE_WITH_INTEL_SGX
++#include "sgx_error.h"
++#include "sgx_trts.h"
++#include "sgx_thread.h"
++#include "sgx_spinlock.h"
++#endif
++
++#ifdef COMPILE_WITH_INTEL_SGX
++extern unsigned long long get_cpuid_for_openssl(void);
++#endif
++
+ DECLARE_STACK_OF(CRYPTO_dynlock)
+ 
+ /* real #defines in crypto.h, keep these upto date */
+@@ -202,6 +213,17 @@
+ static void (*dynlock_destroy_callback)(struct CRYPTO_dynlock_value *l,
+     const char *file, int line) = 0;
+ 
++#ifdef COMPILE_WITH_INTEL_SGX
++extern int my_vfprintf(FILE *stream, const char *format, va_list ap);
++extern int my_fprintf(FILE *stream, const char *format, ...);
++extern char *my_strdup(const char *s);
++#else
++#define my_vfprintf(stream, format, ap) vfprintf(stream, format, ap)
++#define my_fprintf(stream, format, ...) fprintf(stream, format, __VA_ARGS__)
++#define my_strdup(s) strdup(s)
++#endif
++
++
+ int
+ CRYPTO_get_new_lockid(char *name)
+ {
+@@ -213,7 +235,7 @@
+ 		CRYPTOerr(CRYPTO_F_CRYPTO_GET_NEW_LOCKID, ERR_R_MALLOC_FAILURE);
+ 		return (0);
+ 	}
+-	if (name == NULL || (str = strdup(name)) == NULL) {
++	if (name == NULL || (str = my_strdup(name)) == NULL) {
+ 		CRYPTOerr(CRYPTO_F_CRYPTO_GET_NEW_LOCKID, ERR_R_MALLOC_FAILURE);
+ 		return (0);
+ 	}
+@@ -365,6 +387,30 @@
+ 	return (dynlock_destroy_callback);
+ }
+ 
++#ifdef COMPILE_WITH_INTEL_SGX
++struct CRYPTO_dynlock_value *(*crypto_set_dynlock_create_cb_addr)(const char *, int) = NULL;
++struct CRYPTO_dynlock_value* crypto_set_dynlock_create_fake_cb(const char *file, int line) {
++	my_fprintf(0, "%s:%s:%i need to implement callback\n", __FILE__, __func__, __LINE__);
++	if (crypto_set_dynlock_create_cb_addr) {
++		//TODO ocall(crypto_set_dynlock_create_cb_addr, file, line);
++	}
++	return 0;
++}
++#endif
++
++void
++ecall_CRYPTO_set_dynlock_create_callback(void* func)
++{
++	struct CRYPTO_dynlock_value *(*cb)(const char *, int );
++#ifdef COMPILE_WITH_INTEL_SGX
++	crypto_set_dynlock_create_cb_addr = (struct CRYPTO_dynlock_value *(*)(const char *, int))func;
++	cb = crypto_set_dynlock_create_fake_cb;
++#else
++	cb = (struct CRYPTO_dynlock_value *(*)(const char *, int))func;
++#endif
++	CRYPTO_set_dynlock_create_callback(cb);
++}
++
+ void
+ CRYPTO_set_dynlock_create_callback(
+     struct CRYPTO_dynlock_value *(*func)(const char *file, int line))
+@@ -372,6 +418,28 @@
+ 	dynlock_create_callback = func;
+ }
+ 
++#ifdef COMPILE_WITH_INTEL_SGX
++void (*crypto_set_dynlock_lock_cb_addr)(int, struct CRYPTO_dynlock_value*, const char*, int) = NULL;
++void crypto_set_dynlock_lock_fake_cb(int mode, struct CRYPTO_dynlock_value *l, const char *file, int line) {
++	my_fprintf(0, "%s:%s:%i need to implement callback\n", __FILE__, __func__, __LINE__);
++	if (crypto_set_dynlock_lock_cb_addr) {
++		//TODO ocall(crypto_set_dynlock_lock_cb_addr, mode, l, file, line);
++	}
++}
++#endif
++
++void
++ecall_CRYPTO_set_dynlock_lock_callback(void* func)
++{
++	void (*cb)(int, struct CRYPTO_dynlock_value*, const char*, int);
++#ifdef COMPILE_WITH_INTEL_SGX
++	crypto_set_dynlock_lock_cb_addr = (void (*)(int, struct CRYPTO_dynlock_value*, const char*, int))func;
++	cb = crypto_set_dynlock_lock_fake_cb;
++#else
++	cb = (void (*)(int, struct CRYPTO_dynlock_value*, const char*, int))func;
++#endif
++	CRYPTO_set_dynlock_lock_callback(cb);
++}
+ void
+ CRYPTO_set_dynlock_lock_callback(void (*func)(int mode,
+     struct CRYPTO_dynlock_value *l, const char *file, int line))
+@@ -379,6 +447,28 @@
+ 	dynlock_lock_callback = func;
+ }
+ 
++#ifdef COMPILE_WITH_INTEL_SGX
++void (*crypto_set_dynlock_destroy_cb_addr)(struct CRYPTO_dynlock_value*, const char*, int) = NULL;
++void crypto_set_dynlock_destroy_fake_cb(struct CRYPTO_dynlock_value *l, const char *file, int line) {
++	my_fprintf(0, "%s:%s:%i need to implement callback\n", __FILE__, __func__, __LINE__);
++	if (crypto_set_dynlock_destroy_cb_addr) {
++		//TODO ocall(crypto_set_dynlock_destroy_cb_addr, l, file, line);
++	}
++}
++#endif
++
++void
++ecall_CRYPTO_set_dynlock_destroy_callback(void* func)
++{
++	void (*cb)(struct CRYPTO_dynlock_value*, const char*, int);
++#ifdef COMPILE_WITH_INTEL_SGX
++	crypto_set_dynlock_destroy_cb_addr = (void (*)(struct CRYPTO_dynlock_value*, const char*, int))func;
++	cb = crypto_set_dynlock_destroy_fake_cb;
++#else
++	cb = (void (*)(struct CRYPTO_dynlock_value*, const char*, int))func;
++#endif
++	CRYPTO_set_dynlock_destroy_callback(cb);
++}
+ void
+ CRYPTO_set_dynlock_destroy_callback(
+     void (*func)(struct CRYPTO_dynlock_value *l, const char *file, int line))
+@@ -400,6 +490,48 @@
+ 	return (add_lock_callback);
+ }
+ 
++#ifdef COMPILE_WITH_INTEL_SGX
++static sgx_spinlock_t crypto_locks[CRYPTO_NUM_LOCKS] = {
++		SGX_SPINLOCK_INITIALIZER, SGX_SPINLOCK_INITIALIZER, SGX_SPINLOCK_INITIALIZER, SGX_SPINLOCK_INITIALIZER, SGX_SPINLOCK_INITIALIZER,
++		SGX_SPINLOCK_INITIALIZER, SGX_SPINLOCK_INITIALIZER, SGX_SPINLOCK_INITIALIZER, SGX_SPINLOCK_INITIALIZER, SGX_SPINLOCK_INITIALIZER,
++		SGX_SPINLOCK_INITIALIZER, SGX_SPINLOCK_INITIALIZER, SGX_SPINLOCK_INITIALIZER, SGX_SPINLOCK_INITIALIZER, SGX_SPINLOCK_INITIALIZER,
++		SGX_SPINLOCK_INITIALIZER, SGX_SPINLOCK_INITIALIZER, SGX_SPINLOCK_INITIALIZER, SGX_SPINLOCK_INITIALIZER, SGX_SPINLOCK_INITIALIZER,
++		SGX_SPINLOCK_INITIALIZER, SGX_SPINLOCK_INITIALIZER, SGX_SPINLOCK_INITIALIZER, SGX_SPINLOCK_INITIALIZER, SGX_SPINLOCK_INITIALIZER,
++		SGX_SPINLOCK_INITIALIZER, SGX_SPINLOCK_INITIALIZER, SGX_SPINLOCK_INITIALIZER, SGX_SPINLOCK_INITIALIZER, SGX_SPINLOCK_INITIALIZER,
++		SGX_SPINLOCK_INITIALIZER, SGX_SPINLOCK_INITIALIZER, SGX_SPINLOCK_INITIALIZER, SGX_SPINLOCK_INITIALIZER, SGX_SPINLOCK_INITIALIZER,
++		SGX_SPINLOCK_INITIALIZER, SGX_SPINLOCK_INITIALIZER, SGX_SPINLOCK_INITIALIZER, SGX_SPINLOCK_INITIALIZER, SGX_SPINLOCK_INITIALIZER,
++		SGX_SPINLOCK_INITIALIZER
++};
++extern void ocall_crypto_set_locking_cb(void* cb, int mode, int type, const char* file, int line);
++void (*crypto_set_locking_cb_address)(int, int,const char *, int) = NULL;
++void crypto_set_locking_fake_cb(int mode, int type, const char *file, int line) {
++	if (crypto_set_locking_cb_address) {
++		//ocall_crypto_set_locking_cb((void*)crypto_set_locking_cb_address, mode, type, file, line);
++
++		// do the locking inside the enclave
++		if (type < CRYPTO_NUM_LOCKS) {
++			if (mode & CRYPTO_LOCK) {
++				sgx_spin_lock(&crypto_locks[type]);
++			} else {
++				sgx_spin_unlock(&crypto_locks[type]);
++			}
++		}
++	}
++}
++#endif
++
++void
++ecall_CRYPTO_set_locking_callback(void *func) {
++	void (*cb)(int, int,const char *, int);
++#ifdef COMPILE_WITH_INTEL_SGX
++	crypto_set_locking_cb_address = (void (*)(int, int,const char *, int))func;
++	cb = crypto_set_locking_fake_cb;
++#else
++	cb = (void (*)(int, int,const char *, int))func;
++#endif
++	CRYPTO_set_locking_callback(cb);
++}
++
+ void
+ CRYPTO_set_locking_callback(void (*func)(int mode, int type,
+     const char *file, int line))
+@@ -506,6 +638,35 @@
+ 	return (id_callback);
+ }
+ 
++#ifdef COMPILE_WITH_INTEL_SGX
++unsigned long (*crypto_set_id_cb_address)(void) = NULL;
++unsigned long crypto_set_id_fake_cb(void) {
++	//we manage the libreSSL locking inside the enclave
++	//so don't need to do an ocall
++	return sgx_thread_self();
++
++	/*
++	unsigned long retval = 0;
++	if (crypto_set_id_cb_address) {
++		ocall_crypto_set_id_cb(&retval, crypto_set_id_cb_address);
++	}
++	return retval;
++	*/
++}
++#endif
++
++void
++ecall_CRYPTO_set_id_callback(void* func)
++{
++	unsigned long (*cb)(void);
++#ifdef COMPILE_WITH_INTEL_SGX
++	crypto_set_id_cb_address = (unsigned long (*)(void))func;
++	cb = crypto_set_id_fake_cb;
++#else
++	cb = (unsigned long (*)(void))func;
++#endif
++	CRYPTO_set_id_callback(cb);
++}
+ void
+ CRYPTO_set_id_callback(unsigned long (*func)(void))
+ {
+@@ -548,7 +709,7 @@
+ 			rw_text = "ERROR";
+ 
+ 		CRYPTO_THREADID_current(&id);
+-		fprintf(stderr, "lock:%08lx:(%s)%s %-18s %s:%d\n",
++		my_fprintf(stderr, "lock:%08lx:(%s)%s %-18s %s:%d\n",
+ 		    CRYPTO_THREADID_hash(&id), rw_text, operation_text,
+ 		    CRYPTO_get_lock_name(type), file, line);
+ 	}
+@@ -569,6 +730,11 @@
+ }
+ 
+ int
++ecall_CRYPTO_add_lock(int *pointer, int amount, int type, const char *file,
++    int line) {
++	return CRYPTO_add_lock(pointer, amount, type, file, line);
++}
++int
+ CRYPTO_add_lock(int *pointer, int amount, int type, const char *file,
+     int line)
+ {
+@@ -584,7 +750,7 @@
+ 		{
+ 			CRYPTO_THREADID id;
+ 			CRYPTO_THREADID_current(&id);
+-			fprintf(stderr, "ladd:%08lx:%2d+%2d->%2d %-18s %s:%d\n",
++			my_fprintf(stderr, "ladd:%08lx:%2d+%2d->%2d %-18s %s:%d\n",
+ 			    CRYPTO_THREADID_hash(&id), before, amount, ret,
+ 			    CRYPTO_get_lock_name(type),
+ 			    file, line);
+@@ -598,7 +764,7 @@
+ 		{
+ 			CRYPTO_THREADID id;
+ 			CRYPTO_THREADID_current(&id);
+-			fprintf(stderr, "ladd:%08lx:%2d+%2d->%2d %-18s %s:%d\n",
++			my_fprintf(stderr, "ladd:%08lx:%2d+%2d->%2d %-18s %s:%d\n",
+ 			    CRYPTO_THREADID_hash(&id), *pointer, amount, ret,
+ 			    CRYPTO_get_lock_name(type), file, line);
+ 		}
+@@ -642,14 +808,20 @@
+ OPENSSL_cpuid_setup(void)
+ {
+ 	static int trigger = 0;
++#ifndef COMPILE_WITH_INTEL_SGX
+ 	IA32CAP OPENSSL_ia32_cpuid(void);
++#endif
+ 	IA32CAP vec;
+ 
+ 	if (trigger)
+ 		return;
+ 	trigger = 1;
+ 
++#ifdef COMPILE_WITH_INTEL_SGX
++	vec = get_cpuid_for_openssl();
++#else
+ 	vec = OPENSSL_ia32_cpuid();
++#endif
+ 
+ 	/*
+ 	 * |(1<<10) sets a reserved bit to signal that variable
+@@ -688,7 +860,7 @@
+ 	va_list ap;
+ 
+ 	va_start(ap, fmta);
+-	vfprintf(stderr, fmta, ap);
++	my_vfprintf(stderr, fmta, ap);
+ 	va_end(ap);
+ }
+ 

@@ -1,0 +1,10 @@
+--- ./crypto/pem/pem_x509.c	2017-03-08 11:15:50.681465374 +0000
++++ ../talos/./crypto/pem/pem_x509.c	2017-03-08 11:13:57.403753378 +0000
+@@ -65,3 +65,7 @@
+ #include <openssl/x509.h>
+ 
+ IMPLEMENT_PEM_rw(X509, X509, PEM_STRING_X509, X509)
++
++X509 *ecall_PEM_read_bio_X509(BIO *bp, X509 **x, void *cb, void *u) {
++	return PEM_read_bio_X509(bp, x, (pem_password_cb*)cb, u);
++}

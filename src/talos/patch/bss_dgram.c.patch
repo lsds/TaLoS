@@ -1,0 +1,18 @@
+--- ./crypto/bio/bss_dgram.c	2017-03-08 11:15:50.557467878 +0000
++++ ../talos/./crypto/bio/bss_dgram.c	2017-03-08 11:13:57.251756447 +0000
+@@ -74,7 +74,6 @@
+ 
+ #ifndef OPENSSL_NO_DGRAM
+ 
+-
+ static int dgram_write(BIO *h, const char *buf, int num);
+ static int dgram_read(BIO *h, char *buf, int size);
+ static int dgram_puts(BIO *h, const char *str);
+@@ -307,7 +306,6 @@
+ 	if (ret <= 0) {
+ 		if (BIO_dgram_should_retry(ret)) {
+ 			BIO_set_retry_write(b);
+-
+ 			data->_errno = errno;
+ 			/*
+ 			 * higher layers are responsible for querying MTU,

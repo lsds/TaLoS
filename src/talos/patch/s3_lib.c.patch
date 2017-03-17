@@ -1,0 +1,84 @@
+--- ./ssl/s3_lib.c	2017-03-08 11:15:50.805462868 +0000
++++ ../talos/./ssl/s3_lib.c	2017-03-08 11:13:57.567750065 +0000
+@@ -1947,6 +1947,12 @@
+ 	/* end of list */
+ };
+ 
++#ifdef COMPILE_WITH_INTEL_SGX
++extern char* my_strdup(char *);
++#else
++#define my_strdup(s) strdup(s)
++#endif
++
+ int
+ ssl3_num_ciphers(void)
+ {
+@@ -2054,7 +2060,8 @@
+ {
+ 	SSL3_STATE	*s3;
+ 
+-	if ((s3 = calloc(1, sizeof *s3)) == NULL)
++	s3 = calloc(1, sizeof(*s3));
++	if (s3 == NULL)
+ 		goto err;
+ 	memset(s3->rrec.seq_num, 0, sizeof(s3->rrec.seq_num));
+ 	memset(s3->wrec.seq_num, 0, sizeof(s3->wrec.seq_num));
+@@ -2254,7 +2261,7 @@
+ 				    SSL_R_SSL3_EXT_INVALID_SERVERNAME);
+ 				return 0;
+ 			}
+-			if ((s->tlsext_hostname = strdup((char *)parg))
++			if ((s->tlsext_hostname = my_strdup((char *)parg))
+ 			    == NULL) {
+ 				SSLerr(SSL_F_SSL3_CTRL,
+ 				    ERR_R_INTERNAL_ERROR);
+@@ -2307,10 +2314,16 @@
+ 		ret = 1;
+ 		break;
+ 
++/*
++ * PL: do not activate the automatic selection of the eliptic curve
++ * as it lead to poor performance
++ */
++#if 0
+ 	case SSL_CTRL_SET_ECDH_AUTO:
+ 		s->cert->ecdh_tmp_auto = larg;
+ 		ret = 1;
+ 		break;
++#endif
+ 
+ 	default:
+ 		break;
+@@ -2459,9 +2472,15 @@
+ 		return 1;
+ 		break;
+ 
++/*
++ * PL: do not activate the automatic selection of the eliptic curve
++ * as it lead to poor performance
++ */
++#if 0
+ 	case SSL_CTRL_SET_ECDH_AUTO:
+ 		ctx->cert->ecdh_tmp_auto = larg;
+ 		return 1;
++#endif
+ 
+ 		/* A Thawte special :-) */
+ 	case SSL_CTRL_EXTRA_CHAIN_CERT:
+@@ -2526,6 +2545,16 @@
+ 	return (1);
+ }
+ 
++SSL_CIPHER * ecall_ssl3_get_cipher_name_by_char(const unsigned char* p, char* cipher_name) {
++	const SSL_CIPHER * cipher = ssl3_get_cipher_by_char(p);
++	if (cipher) {
++		size_t s = strlen(cipher->name);
++		memcpy(cipher_name, cipher->name, s);
++		cipher_name[s] = '\0';
++	}
++	return (SSL_CIPHER*)cipher;
++}
++
+ /*
+  * This function needs to check if the ciphers required are actually available.
+  */

@@ -1,0 +1,26 @@
+--- ./crypto/ec/ec_key.c	2017-03-08 11:15:50.609466828 +0000
++++ ../talos/./crypto/ec/ec_key.c	2017-03-08 11:13:57.323754994 +0000
+@@ -91,6 +91,11 @@
+ }
+ 
+ EC_KEY *
++ecall_EC_KEY_new_by_curve_name(int nid) {
++	return EC_KEY_new_by_curve_name(nid);
++}
++
++EC_KEY *
+ EC_KEY_new_by_curve_name(int nid)
+ {
+ 	EC_KEY *ret = EC_KEY_new();
+@@ -105,6 +110,11 @@
+ }
+ 
+ void 
++ecall_EC_KEY_free(EC_KEY * r) {
++	EC_KEY_free(r);
++}
++
++void 
+ EC_KEY_free(EC_KEY * r)
+ {
+ 	int i;

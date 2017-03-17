@@ -1,0 +1,25 @@
+--- ./crypto/bio/bss_file.c	2017-03-08 11:15:50.557467878 +0000
++++ ../talos/./crypto/bio/bss_file.c	2017-03-08 11:13:57.255756367 +0000
+@@ -111,6 +111,11 @@
+ };
+ 
+ BIO *
++ecall_BIO_new_file(const char *filename, const char *mode) {
++	return BIO_new_file(filename, mode);
++}
++
++BIO *
+ BIO_new_file(const char *filename, const char *mode)
+ {
+ 	BIO  *ret;
+@@ -149,6 +154,10 @@
+ }
+ 
+ BIO_METHOD *
++ecall_BIO_s_file(void) {
++	return BIO_s_file();
++}
++BIO_METHOD *
+ BIO_s_file(void)
+ {
+ 	return (&methods_filep);

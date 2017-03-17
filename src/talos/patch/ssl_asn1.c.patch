@@ -1,0 +1,46 @@
+--- ./ssl/ssl_asn1.c	2017-03-08 11:15:50.817462626 +0000
++++ ../talos/./ssl/ssl_asn1.c	2017-03-08 11:13:57.579749824 +0000
+@@ -64,6 +64,12 @@
+ #include <openssl/objects.h>
+ #include <openssl/x509.h>
+ 
++#ifdef COMPILE_WITH_INTEL_SGX
++extern char *my_strndup(const char *, size_t);
++#else
++#define my_strndup(s, n) strndup(s, n)
++#endif
++
+ /* XXX - these are here to avoid including asn1_mac.h */
+ int asn1_GetSequence(ASN1_const_CTX *c, long *length);
+ void asn1_add_error(const unsigned char *address, int offset);
+@@ -84,6 +90,10 @@
+ } SSL_SESSION_ASN1;
+ 
+ int
++ecall_i2d_SSL_SESSION(void* in, unsigned char **pp) {
++	return i2d_SSL_SESSION((SSL_SESSION*)in, pp);
++}
++int
+ i2d_SSL_SESSION(SSL_SESSION *in, unsigned char **pp)
+ {
+ #define LSIZE2 (sizeof(long)*2)
+@@ -258,6 +268,10 @@
+ 	return (ret);
+ }
+ 
++void*
++ecall_d2i_SSL_SESSION(void **a, const unsigned char **pp, long length) {
++	return (void*)d2i_SSL_SESSION((SSL_SESSION**)a, pp, length);
++}
+ SSL_SESSION *
+ d2i_SSL_SESSION(SSL_SESSION **a, const unsigned char **pp, long length)
+ {
+@@ -585,7 +599,7 @@
+ 		c.slen -= (c.p - c.q);
+ 	}
+ 	if (os.data) {
+-		ret->tlsext_hostname = strndup((char *)os.data, os.length);
++		ret->tlsext_hostname = my_strndup((char *)os.data, os.length);
+ 		free(os.data);
+ 		os.data = NULL;
+ 		os.length = 0;

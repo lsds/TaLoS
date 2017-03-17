@@ -1,0 +1,104 @@
+--- ./crypto/bn/bn_lib.c	2017-03-08 11:15:50.561467798 +0000
++++ ../talos/./crypto/bn/bn_lib.c	2017-03-08 11:13:57.259756287 +0000
+@@ -137,6 +137,12 @@
+ }
+ #endif
+ 
++int ecall_BN_is_zero(const BIGNUM* a) {
++	return BN_is_zero(a);
++}
++int BN_is_zero(const BIGNUM* a) {
++	return (a->top == 0);
++}
+ const BIGNUM *
+ BN_value_one(void)
+ {
+@@ -201,6 +207,10 @@
+ }
+ 
+ int
++ecall_BN_num_bits(const BIGNUM *a) {
++	return BN_num_bits(a);
++}
++int
+ BN_num_bits(const BIGNUM *a)
+ {
+ 	int i = a->top - 1;
+@@ -231,6 +241,10 @@
+ }
+ 
+ void
++ecall_BN_free(BIGNUM *a) {
++	BN_free(a);
++}
++void
+ BN_free(BIGNUM *a)
+ {
+ 	BN_clear_free(a);
+@@ -244,6 +258,10 @@
+ }
+ 
+ BIGNUM *
++ecall_BN_new(void) {
++	return BN_new();
++}
++BIGNUM *
+ BN_new(void)
+ {
+ 	BIGNUM *ret;
+@@ -428,6 +446,10 @@
+ }
+ 
+ BIGNUM *
++ecall_BN_dup(const BIGNUM *a) {
++	return BN_dup(a);
++}
++BIGNUM *
+ BN_dup(const BIGNUM *a)
+ {
+ 	BIGNUM *t;
+@@ -563,6 +585,10 @@
+ }
+ 
+ int
++ecall_BN_set_word(BIGNUM *a, BN_ULONG w) {
++	return BN_set_word(a, w);
++}
++int
+ BN_set_word(BIGNUM *a, BN_ULONG w)
+ {
+ 	bn_check_top(a);
+@@ -576,6 +602,10 @@
+ }
+ 
+ BIGNUM *
++ecall_BN_bin2bn(const unsigned char *s, int len, BIGNUM *ret) {
++	return BN_bin2bn(s, len, ret);
++}
++BIGNUM *
+ BN_bin2bn(const unsigned char *s, int len, BIGNUM *ret)
+ {
+ 	unsigned int i, m;
+@@ -727,6 +757,11 @@
+ }
+ 
+ int
++ecall_BN_clear_bit(BIGNUM *a, int n)
++{
++	return BN_clear_bit(a, n);
++}
++int
+ BN_clear_bit(BIGNUM *a, int n)
+ {
+ 	int i, j;
+@@ -746,6 +781,10 @@
+ }
+ 
+ int
++ecall_BN_is_bit_set(const BIGNUM *a, int n) {
++	return BN_is_bit_set(a, n);
++}
++int
+ BN_is_bit_set(const BIGNUM *a, int n)
+ {
+ 	int i, j;

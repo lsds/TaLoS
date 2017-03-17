@@ -1,0 +1,20 @@
+--- ./ssl/ssl_locl.h	2017-03-08 11:15:50.829462384 +0000
++++ ../talos/./ssl/ssl_locl.h	2017-03-08 11:13:57.595749501 +0000
+@@ -595,6 +595,7 @@
+ int ssl_verify_alarm_type(long type);
+ void ssl_load_ciphers(void);
+ 
++SSL_CIPHER * ecall_ssl3_get_cipher_name_by_char(const unsigned char* p, char* cipher_name);
+ const SSL_CIPHER *ssl3_get_cipher_by_char(const unsigned char *p);
+ int ssl3_put_cipher_by_char(const SSL_CIPHER *c, unsigned char *p);
+ int ssl3_send_server_certificate(SSL *s);
+@@ -844,4 +845,9 @@
+     size_t data_plus_mac_plus_padding_size, const unsigned char *mac_secret,
+     unsigned mac_secret_length, char is_sslv3);
+ 
++/* ssl_lib.c */
++#ifdef COMPILE_WITH_INTEL_SGX
++void ssl_ctx_info_fake_cb(const SSL *ssl, int type, int val);
++#endif
++
+ #endif

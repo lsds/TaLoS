@@ -1,0 +1,41 @@
+--- ./include/openssl/pem.h	2017-03-08 11:15:50.773463515 +0000
++++ ../talos/./include/openssl/pem.h	2017-03-08 11:13:57.523750953 +0000
+@@ -405,6 +405,9 @@
+ 	    long len);
+ void *  PEM_ASN1_read(d2i_of_void *d2i, const char *name, FILE *fp, void **x,
+ 	    pem_password_cb *cb, void *u);
++int	ecall_PEM_ASN1_write(i2d_of_void *i2d, const char *name, void *fp,
++	    void *x, const EVP_CIPHER *enc, unsigned char *kstr,
++	    int klen, pem_password_cb *callback, void *u);
+ int	PEM_ASN1_write(i2d_of_void *i2d, const char *name, FILE *fp,
+ 	    void *x, const EVP_CIPHER *enc, unsigned char *kstr,
+ 	    int klen, pem_password_cb *callback, void *u);
+@@ -431,8 +434,12 @@
+ 
+ DECLARE_PEM_rw(X509, X509)
+ 
++X509 *ecall_PEM_read_bio_X509(BIO *bp, X509 **x, void *cb, void *u);
++
+ DECLARE_PEM_rw(X509_AUX, X509)
+ 
++X509 *ecall_PEM_read_bio_X509_AUX(BIO *bp, X509 **x, void *cb, void *u);
++
+ DECLARE_PEM_rw(X509_CERT_PAIR, X509_CERT_PAIR)
+ 
+ DECLARE_PEM_rw(X509_REQ, X509_REQ)
+@@ -468,6 +475,7 @@
+ #endif
+ 
+ #ifndef OPENSSL_NO_EC
++EC_GROUP *ecall_PEM_read_bio_ECPKParameters(BIO *bp, EC_GROUP **x, void *func, void *u);
+ DECLARE_PEM_rw_const(ECPKParameters, EC_GROUP)
+ DECLARE_PEM_rw_cb(ECPrivateKey, EC_KEY)
+ DECLARE_PEM_rw(EC_PUBKEY, EC_KEY)
+@@ -475,6 +483,7 @@
+ 
+ #ifndef OPENSSL_NO_DH
+ 
++DH *ecall_PEM_read_bio_DHparams(BIO *bp, DH **x, void* cb, void *u);
+ DECLARE_PEM_rw_const(DHparams, DH)
+ 
+ #endif

@@ -1,0 +1,21 @@
+--- ./include/openssl/stack.h	2017-03-08 11:15:50.777463435 +0000
++++ ../talos/./include/openssl/stack.h	2017-03-08 11:13:57.535750713 +0000
+@@ -75,14 +75,18 @@
+ #define M_sk_num(sk)		((sk) ? (sk)->num:-1)
+ #define M_sk_value(sk,n)	((sk) ? (sk)->data[n] : NULL)
+ 
++int ecall_sk_num(const void *);
+ int sk_num(const _STACK *);
++void *ecall_sk_value(const void *, int);
+ void *sk_value(const _STACK *, int);
+ 
+ void *sk_set(_STACK *, int, void *);
+ 
+ _STACK *sk_new(int (*cmp)(const void *, const void *));
++void* ecall_sk_new_null(void);
+ _STACK *sk_new_null(void);
+ void sk_free(_STACK *);
++void ecall_sk_pop_free(void* st, void* cb);
+ void sk_pop_free(_STACK *st, void (*func)(void *));
+ int sk_insert(_STACK *sk, void *data, int where);
+ void *sk_delete(_STACK *st, int loc);

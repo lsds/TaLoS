@@ -1,0 +1,73 @@
+--- ./crypto/dh/dh_lib.c	2017-03-08 11:15:50.597467071 +0000
++++ ../talos/./crypto/dh/dh_lib.c	2017-03-08 11:13:57.303755397 +0000
+@@ -68,6 +68,12 @@
+ #include <openssl/engine.h>
+ #endif
+ 
++#ifdef COMPILE_WITH_INTEL_SGX
++#include "sgx_error.h"
++extern sgx_status_t ocall_malloc(void** retval, size_t size);
++extern sgx_status_t ocall_free(void* ptr);
++#endif
++
+ static const DH_METHOD *default_DH_method = NULL;
+ 
+ void
+@@ -109,6 +115,10 @@
+ }
+ 
+ DH *
++ecall_DH_new(void) {
++	return DH_new();
++}
++DH *
+ DH_new(void)
+ {
+ 	return DH_new_method(NULL);
+@@ -119,7 +129,11 @@
+ {
+ 	DH *ret;
+ 
++#ifdef COMPILE_WITH_INTEL_SGX
++	ocall_malloc((void**)&ret, sizeof(DH));
++#else
+ 	ret = malloc(sizeof(DH));
++#endif
+ 	if (ret == NULL) {
+ 		DHerr(DH_F_DH_NEW_METHOD, ERR_R_MALLOC_FAILURE);
+ 		return NULL;
+@@ -169,13 +183,22 @@
+ 			ENGINE_finish(ret->engine);
+ #endif
+ 		CRYPTO_free_ex_data(CRYPTO_EX_INDEX_DH, ret, &ret->ex_data);
++#ifdef COMPILE_WITH_INTEL_SGX
++		ocall_free(ret);
++#else
+ 		free(ret);
++#endif
+ 		ret = NULL;
+ 	}
+ 	return ret;
+ }
+ 
+ void
++ecall_DH_free(DH *r)
++{
++	DH_free(r);
++}
++void
+ DH_free(DH *r)
+ {
+ 	int i;
+@@ -203,7 +226,11 @@
+ 	BN_clear_free(r->counter);
+ 	BN_clear_free(r->pub_key);
+ 	BN_clear_free(r->priv_key);
++#ifdef COMPILE_WITH_INTEL_SGX
++	ocall_free(r);
++#else
+ 	free(r);
++#endif
+ }
+ 
+ int

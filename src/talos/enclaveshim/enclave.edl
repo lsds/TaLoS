@@ -1,0 +1,309 @@
+/*
+ * Copyright 2017 Imperial College London
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at   
+ * 
+ * 	http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+enclave {
+	from "sgx_tstdc.edl" import *;
+	include "openssl/ossl_typ.h"
+	include "openssl_types.h"
+
+	trusted {
+		/* Nginx */
+		public int ecall_SSL_read([user_check] SSL *ssl, [user_check] void *buf, int num);
+		public void ecall_OPENSSL_config([user_check] const char *config_name);
+		public int ecall_SSL_library_init(void);
+		public void	ecall_SSL_load_error_strings(void);
+		public void ecall_OPENSSL_add_all_algorithms_noconf(void);
+		public int ecall_SSL_get_ex_new_index(long argl, [user_check] void *argp, [user_check] CRYPTO_EX_new *new_func, [user_check] CRYPTO_EX_dup *dup_func, [user_check] CRYPTO_EX_free *free_func);
+		public int ecall_SSL_CTX_get_ex_new_index(long argl, [user_check] void *argp, [user_check] CRYPTO_EX_new *new_func, [user_check] CRYPTO_EX_dup *dup_func, [user_check] CRYPTO_EX_free *free_func);
+		public int ecall_X509_get_ex_new_index(long argl, [user_check] void *argp, [user_check] CRYPTO_EX_new *new_func, [user_check] CRYPTO_EX_dup *dup_func, [user_check] CRYPTO_EX_free *free_func);
+		public SSL_METHOD *ecall_SSLv23_method(void);
+		public SSL_CTX *ecall_SSL_CTX_new([user_check] const SSL_METHOD *meth);
+		public int ecall_SSL_CTX_set_ex_data([user_check] SSL_CTX *ssl, int idx, [user_check] void *data);
+		public long	ecall_SSL_CTX_ctrl([user_check] SSL_CTX *ctx,int cmd, long larg, [user_check] void *parg);
+		public void ecall_SSL_CTX_set_info_callback([user_check] SSL_CTX *ctx, [user_check] void *cb);
+		public long ecall_SSL_CTX_callback_ctrl([user_check] SSL_CTX *c, int i, [user_check] void *cb);
+		public void ecall_SSL_CTX_set_alpn_select_cb([user_check] SSL_CTX* ctx, [user_check] void *cb, [user_check] void *arg);
+		public void ecall_SSL_CTX_set_next_protos_advertised_cb([user_check] SSL_CTX *s, [user_check] void *cb, [user_check] void *arg);
+		public BIO* ecall_BIO_new_file([user_check] const char *filename, [user_check] const char *mode, [user_check] int* method_in_enclave);
+		public X509 *ecall_PEM_read_bio_X509_AUX([user_check] BIO *bp, [user_check] X509 **x, [user_check] void *cb, [user_check] void *u);
+		public int ecall_SSL_CTX_use_certificate([user_check] SSL_CTX *ctx, [user_check] X509 *x);
+		public void *ecall_SSL_CTX_get_ex_data([user_check] const SSL_CTX *ssl,int idx);
+		public int ecall_X509_set_ex_data([user_check] X509 *r, int idx, [user_check] void *arg);
+		public X509 *ecall_PEM_read_bio_X509([user_check] BIO *bp, [user_check] X509 **x, [user_check] void *cb, [user_check] void *u);
+		public unsigned long ecall_ERR_peek_last_error(void);
+		public unsigned long ecall_ERR_peek_error(void);
+		public unsigned long ecall_ERR_peek_error_line_data([user_check] const char **file, [user_check] int *line, [user_check] const char **data, [user_check] int *flags);
+		public unsigned long ecall_ERR_get_error(void);
+		public void ecall_ERR_clear_error(void);
+		public void ecall_ERR_error_string_n(unsigned long e, [user_check] char *buf, size_t len);
+		public int ecall_BIO_free([user_check] BIO *a);
+		public int ecall_SSL_CTX_use_PrivateKey_file([user_check] SSL_CTX *ctx, [user_check] const char *file, int type);
+		public void ecall_SSL_CTX_set_default_passwd_cb([user_check] SSL_CTX *ctx, [user_check] void *cb);
+		public int ecall_SSL_CTX_set_cipher_list([user_check] SSL_CTX *ctx, [user_check] const char *str);
+		public void ecall_SSL_CTX_set_verify_depth([user_check] SSL_CTX *ctx,int depth);
+		public int ecall_OBJ_sn2nid([user_check] const char *s);
+		public EC_KEY *ecall_EC_KEY_new_by_curve_name(int nid);
+		public void ecall_EC_KEY_free([user_check] EC_KEY *key);
+		public long ecall_SSL_CTX_set_timeout([user_check] SSL_CTX *ctx,long t);
+		public EVP_MD_CTX *ecall_EVP_MD_CTX_create(void);
+		public EVP_MD *ecall_EVP_sha1(void);
+		public int ecall_EVP_DigestInit_ex([user_check] EVP_MD_CTX *ctx, [user_check] const EVP_MD *type, [user_check] ENGINE *impl);
+		public int ecall_EVP_DigestUpdate([user_check] EVP_MD_CTX *ctx, [user_check] const void *d, size_t cnt);
+		public int ecall_X509_digest([user_check] const X509 *data, [user_check] const EVP_MD *type, [user_check] unsigned char *md, [user_check] unsigned int *len);
+		public void* ecall_X509_get_ex_data([user_check] X509 *r, int idx);
+		public void* ecall_SSL_CTX_get_client_CA_list([user_check] const SSL_CTX *s);
+		public int ecall_sk_num([user_check] const void *s);
+		public int ecall_EVP_DigestFinal_ex([user_check] EVP_MD_CTX *ctx, [user_check] unsigned char *md, [user_check] unsigned int *s);
+		public void	ecall_EVP_MD_CTX_destroy([user_check] EVP_MD_CTX *ctx);
+		public int ecall_SSL_CTX_set_session_id_context([user_check] SSL_CTX *ctx, [user_check] const unsigned char *sid_ctx, unsigned int sid_ctx_len);
+		public void ecall_SSL_CTX_sess_set_new_cb([user_check] SSL_CTX *ctx, [user_check] void* new_session_cb);
+		public void ecall_SSL_CTX_sess_set_get_cb([user_check] SSL_CTX *ctx, [user_check] void *get_session_cb);
+		public void ecall_SSL_CTX_sess_set_remove_cb([user_check] SSL_CTX *ctx, [user_check] void *remove_session_cb);
+		public SSL*	ecall_SSL_new([user_check] SSL_CTX *ctx, [user_check] SSL* out_s);
+		public int ecall_SSL_set_fd([user_check] SSL *s, int fd);
+		public void ecall_SSL_set_accept_state([user_check] SSL *s);
+		public int ecall_SSL_do_handshake([user_check] SSL *s);
+		public int ecall_SSL_get_error([user_check] const SSL *s,int ret_code);
+		public BIO *ecall_SSL_get_rbio([user_check] const SSL *s);
+		public BIO *ecall_SSL_get_wbio([user_check] const SSL *s);
+		public long ecall_BIO_int_ctrl([user_check] BIO *bp,int cmd,long larg,int iarg);
+		public int ecall_SSL_state([user_check] const SSL *ssl);
+		public SSL_CIPHER *ecall_SSL_get_current_cipher([user_check] const SSL *s);
+		public char *ecall_SSL_CIPHER_description([user_check] const SSL_CIPHER *c, [user_check] char *buf, int size);
+		public int ecall_SSL_get_version_as_int([user_check] const SSL *s);
+		public long	ecall_SSL_ctrl([user_check] SSL *ssl,int cmd, long larg, [user_check] void *parg);
+		public int ecall_SSL_write([user_check] SSL *ssl,[user_check] const void *buf,int num);
+		public int ecall_SSL_get_shutdown([user_check] const SSL *ssl);
+		public void ecall_SSL_set_quiet_shutdown([user_check] SSL *ssl,int mode);
+		public void ecall_SSL_set_shutdown([user_check] SSL *ssl,int mode);
+		public void	ecall_SSL_free([user_check] SSL *ssl);
+		public int	ecall_SSL_shutdown([user_check] SSL *s);
+		public void ecall_SSL_get_servername([user_check] const SSL *s, int type, [user_check] char* servername, [user_check] int* len);
+		public int ecall_i2d_SSL_SESSION([user_check] void *in, [user_check] unsigned char **pp);
+		public void* ecall_d2i_SSL_SESSION([user_check] void** a, [user_check] const unsigned char **pp, long length);
+		public void ecall_SSL_SESSION_get_id([user_check] void* s, [user_check] unsigned char* buf, [user_check] unsigned int *len);
+		public long ecall_SSL_CTX_get_timeout([user_check] SSL_CTX *ctx);
+		public int ecall_MD5_Init([user_check] MD5_CTX *c);
+		public int ecall_MD5_Update([user_check] MD5_CTX *c, [user_check] const void *data, size_t len);
+		public int ecall_MD5_Final([user_check] unsigned char *md, [user_check] MD5_CTX *c);
+		
+		/* Squid */
+		public void ecall_SSL_CTX_free([user_check] SSL_CTX *c);
+		public EVP_MD* ecall_EVP_get_digestbyname([user_check] const char *name);
+		public SSL_METHOD *ecall_SSLv23_client_method(void);
+		public void* ecall_sk_new_null(void);
+		public BIO_METHOD* ecall_BIO_s_file(void);
+		public BIO*	ecall_BIO_new([user_check] BIO_METHOD *type, [user_check] BIO* ret);
+		public long	ecall_BIO_ctrl([user_check] BIO *bp,int cmd,long larg,[user_check] void *parg);
+		public void ecall_SSL_CTX_set_tmp_rsa_callback([user_check] SSL_CTX *ctx, [user_check] void* cb);
+		public void ecall_SSL_CTX_set_verify([user_check] SSL_CTX *ctx,int mode, [user_check] void* callback);
+		public int ecall_X509_check_issued([user_check] X509 *issuer, [user_check] X509 *subject);
+		public void ecall_X509_free([user_check] X509 *a);
+		public int ecall_SSL_CTX_set_default_verify_paths([user_check] SSL_CTX *ctx);
+		public void ecall_SSL_CTX_set_next_proto_select_cb([user_check] SSL_CTX *ctx, [user_check] void* cb, [user_check] void *arg);
+		public void ecall_SSL_CTX_set_cert_verify_callback([user_check] SSL_CTX *ctx, [user_check] void* cb, [user_check] void *arg);
+		public EVP_PKEY *ecall_PEM_read_bio_PrivateKey([user_check] BIO *bp, [user_check] EVP_PKEY **x, [user_check] void* cb, [user_check] void *u);
+		public int ecall_X509_check_private_key([user_check] X509 *x, [user_check] EVP_PKEY *k);
+		public void ecall_EVP_PKEY_free([user_check] EVP_PKEY *pkey);
+		public X509 *ecall_X509_new(void);
+		public X509_NAME *ecall_X509_get_subject_name([user_check] X509 *a);
+		public int ecall_X509_pubkey_digest([user_check] const X509 *data, [user_check] const EVP_MD *type, [user_check] unsigned char *md, [user_check] unsigned int *len);
+		public int ecall_X509_NAME_get_text_by_NID([user_check] X509_NAME *name, int nid, [user_check] char *buf, int len);
+		public int ecall_CRYPTO_add_lock([user_check] int *pointer,int amount,int type, [user_check] const char *file, int line);
+		public BIGNUM *ecall_BN_new(void);
+		public int ecall_BN_set_word([user_check] BIGNUM *a, BN_ULONG w);
+		public int ecall_X509_set_pubkey([user_check] X509 *x, [user_check] EVP_PKEY *pkey);
+		public int ecall_BN_is_zero([user_check] BIGNUM* a);
+		public void ecall_BN_free([user_check] BIGNUM *a);
+		public ASN1_INTEGER *ecall_X509_get_serialNumber([user_check] X509 *x);
+		public BIGNUM *ecall_BN_dup([user_check] const BIGNUM *a);
+		public ASN1_INTEGER *ecall_BN_to_ASN1_INTEGER([user_check] const BIGNUM *bn, [user_check] ASN1_INTEGER *ai);
+		public int ecall_X509_set_subject_name([user_check] X509 *x, [user_check] X509_NAME *name);
+		public int ecall_X509_NAME_get_index_by_NID([user_check] X509_NAME *name,int nid,int lastpos);
+		public X509_NAME_ENTRY *ecall_X509_NAME_get_entry([user_check] X509_NAME *name, int loc);
+		public X509_NAME_ENTRY *ecall_X509_NAME_delete_entry([user_check] X509_NAME *name, int loc);
+		public void ecall_X509_NAME_ENTRY_free([user_check] X509_NAME_ENTRY *a);
+		public int ecall_X509_NAME_add_entry_by_NID([user_check] X509_NAME *name, int nid, int type, [user_check] unsigned char *bytes, int len, int loc, int set);
+		public ASN1_TIME* ecall_X509_get_notBefore([user_check] X509* x);
+		public ASN1_TIME* ecall_X509_get_notAfter([user_check] X509* x);
+		public int ecall_X509_set_notBefore([user_check] X509 *x, [user_check] const ASN1_TIME *tm);
+		public int ecall_X509_set_notAfter([user_check] X509 *x, [user_check] const ASN1_TIME *tm);
+		public ASN1_OBJECT* ecall_X509_get_cert_key_algor_algorithm([user_check] X509* x);
+		public unsigned char *ecall_X509_alias_get0([user_check] X509 *x, [user_check] int *len);
+		public int ecall_OBJ_obj2nid([user_check] const ASN1_OBJECT *a);
+		public int ecall_X509_get_ext_by_NID([user_check] X509 *x, int nid, int lastpos);
+		public X509_EXTENSION *ecall_X509_get_ext([user_check] X509 *x, int loc);
+		public int ecall_X509_set_issuer_name([user_check] X509 *x, [user_check] X509_NAME *name);
+		public int ecall_X509_sign([user_check] X509 *x, [user_check] EVP_PKEY *pkey, [user_check] const EVP_MD *md);
+		public BIGNUM *ecall_BN_bin2bn([user_check] const unsigned char *s, int len, [user_check] BIGNUM *ret);
+		public int ecall_BN_num_bits([user_check] const BIGNUM *a);
+		public int ecall_BN_is_bit_set([user_check] const BIGNUM *a, int n);
+		public SSL_METHOD *ecall_SSLv23_server_method(void);
+		public int ecall_SSL_CTX_use_PrivateKey([user_check] SSL_CTX *ctx, [user_check] EVP_PKEY *pkey);
+		public char *ecall_ERR_error_string(unsigned long e, [user_check] char *ret);
+		public void ecall_SSL_set_info_callback([user_check] SSL *ssl, [user_check] void* cb);
+		public ASN1_OBJECT* ecall_X509_get_algorithm([user_check] X509* ptr);
+		public SSL_CIPHER* ecall_ssl3_get_cipher_name_by_char([user_check] const unsigned char* p, [user_check] char* cipher_name);
+		public int ecall_SSL_set_cipher_list([user_check] SSL *s, [user_check] const char *str);
+		public int ecall_SSL_connect([user_check] SSL *s);
+		public char* ecall_X509_NAME_oneline([user_check] X509_NAME *a, [user_check] char *buf, int size);
+		public int ecall_EVP_MD_type([user_check] const EVP_MD *md);
+		public char *ecall_OBJ_nid2sn(int n);
+		public int ecall_PEM_ASN1_write([user_check] i2d_of_void *i2d, [user_check] const char *name, [user_check] void *fp, [user_check] void *x, [user_check] const EVP_CIPHER *enc, [user_check] unsigned char *kstr, int klen, [user_check] pem_password_cb *callback, [user_check] void *u);
+		public ASN1_STRING *ecall_X509_NAME_ENTRY_get_data([user_check] X509_NAME_ENTRY *ne);
+		public void *ecall_sk_value([user_check] const void *s, int v);
+		public int ecall_SSL_pending([user_check] const SSL *s);
+		public int ecall_X509_add_ext([user_check] X509 *x, [user_check] X509_EXTENSION *ex, int loc);
+		public int ecall_X509_set_version([user_check] X509 *x, long version);
+		public struct stack_st_SSL_CIPHER* ecall_SSL_get_ciphers([user_check] const SSL *s);
+		public char* ecall_SSL_CIPHER_get_name([user_check] const SSL_CIPHER *c);
+		public char *ecall_SSL_state_string_long([user_check] const SSL *s);
+		public int ecall_SSL_use_certificate([user_check] SSL *ssl, [user_check] X509 *x);
+		public int ecall_SSL_use_PrivateKey([user_check] SSL *ssl, [user_check] EVP_PKEY *pkey);
+		public void ecall_sk_pop_free([user_check] void *st, [user_check] void* cb);
+		public void ecall_GENERAL_NAME_free([user_check] GENERAL_NAME *a);
+		public long ecall_SSL_SESSION_set_timeout([user_check] SSL_SESSION* session, long t);
+		public int ecall_BN_clear_bit([user_check] BIGNUM *a, int n);
+		public int ecall_SSL_select_next_proto([user_check] unsigned char **out, [user_check] unsigned char *outlen, [user_check] const unsigned char *in, unsigned int inlen, [user_check] const unsigned char *client, unsigned int client_len);
+
+		/* Apache */
+		public char *ecall_SSLeay_version(int type);
+		public void ecall_ERR_load_crypto_strings(void);
+		public void ecall_OPENSSL_load_builtin_modules(void);
+		public int ecall_OBJ_txt2nid([user_check] const char *s);
+		public int ecall_OBJ_create([user_check] const char *oid, [user_check] const char *sn, [user_check] const char *ln);
+		public X509_STORE *ecall_SSL_CTX_get_cert_store([user_check] const SSL_CTX *c);
+		public int ecall_SSL_CTX_use_certificate_chain_file([user_check] SSL_CTX *ctx, [user_check] const char *file);
+		public int ecall_SSL_CTX_check_private_key([user_check] const SSL_CTX *ctx);
+		public void ecall_SSL_set_connect_state([user_check] SSL *s);
+		public X509* ecall_SSL_get_certificate([user_check] const SSL *ssl);
+		public void* ecall_X509_get_ext_d2i([user_check] X509 *x, int nid, [user_check] int *crit, [user_check] int *idx);
+		public void ecall_EC_GROUP_free([user_check] EC_GROUP * group);
+		public DH *ecall_DH_new(void);
+		public int ecall_SSL_set_session_id_context([user_check] SSL *ssl, [user_check] const unsigned char *sid_ctx, unsigned int sid_ctx_len);
+		public BIGNUM *ecall_ASN1_INTEGER_to_BN([user_check] const ASN1_INTEGER *ai, [user_check] BIGNUM *bn);
+		public void ecall_BASIC_CONSTRAINTS_free([user_check] BASIC_CONSTRAINTS *a);
+		public void ecall_DH_free([user_check] DH *dh);
+		public void ecall_SSL_set_verify_result([user_check] SSL *ssl, long arg);
+		public void ecall_SSL_set_bio([user_check] SSL *s, [user_check] BIO *rbio, [user_check] BIO *wbio);
+		public int ecall_SSL_accept([user_check] SSL *s);
+		public void ecall_CRYPTO_set_id_callback([user_check] void *func);
+		public void ecall_CRYPTO_set_locking_callback([user_check] void *func);
+		public void ecall_CRYPTO_set_dynlock_create_callback([user_check] void *func);
+		public void ecall_CRYPTO_set_dynlock_lock_callback([user_check] void *func);
+		public void ecall_CRYPTO_set_dynlock_destroy_callback([user_check] void *func);
+		public void ecall_SSL_CTX_set_tmp_dh_callback([user_check] SSL_CTX *ctx, [user_check] void* dh);
+		public ASN1_INTEGER* ecall_X509_BC_get_pathlen([user_check] BASIC_CONSTRAINTS* bc);
+		public DH *ecall_PEM_read_bio_DHparams([user_check] BIO *bp, [user_check] DH **x, [user_check] void* cb, [user_check] void *u);
+		public EC_GROUP *ecall_PEM_read_bio_ECPKParameters([user_check] BIO *bp, [user_check] DH **x, [user_check] void* cb, [user_check] void *u);
+		public void ecall_CONF_modules_unload(int all);
+		public void ecall_EVP_cleanup(void);
+		public void ecall_ERR_remove_state(unsigned long pid);
+		public void ecall_ERR_free_strings(void);
+		public long ecall_SSL_get_verify_result([user_check] const SSL *ssl);
+		public X509 *ecall_SSL_get_peer_certificate([user_check] const SSL *s);
+		public SSL_CTX *ecall_SSL_get_SSL_CTX([user_check] const SSL *ssl);
+		public int ecall_SSL_get_verify_mode([user_check] const SSL *s);
+		public void	ecall_SSL_set_verify([user_check] SSL *s, int mode, [user_check] void* cb);
+		public SSL_CTX *ecall_SSL_set_SSL_CTX([user_check] SSL *ssl, [user_check] SSL_CTX* ctx);
+		public int ecall_SSL_CTX_get_verify_mode([user_check] const SSL_CTX *ctx);
+		public void* ecall_SSL_CTX_get_verify_callback([user_check] const SSL_CTX *ctx);
+		public int ecall_BN_dec2bn([user_check] BIGNUM **bn, [user_check] const char *a);
+		public char *ecall_ENGINE_get_name([user_check] const ENGINE *e);
+		public char *ecall_ENGINE_get_id([user_check] const ENGINE *e);
+		public void ecall_SSL_get_privatekey([user_check] EVP_PKEY* pkey, [user_check] SSL *s);
+		public int ecall_EVP_PKEY_type(int type);
+		public int ecall_EVP_PKEY_bits([user_check] EVP_PKEY *pkey);
+		public void ecall_ENGINE_load_builtin_engines(void);
+
+		/* Asynchronous ecalls */
+		public void ecall_start_sgx_thread([user_check] void* eq, [user_check] void* oq, int tid, int appthreads, int sgxthreads, int lthread_tasks, int ncycles, [user_check] uint64_t* rdtsc_value);
+	};
+	
+	untrusted {
+		/* 
+		 * ocall_print_string - invokes OCALL to display string buffer inside the enclave.
+		 * ocall_println_string - same as ocall_print_string but with a new line
+		 *  [in]: copy the string buffer to App outside.
+		 *  [string]: specifies 'str' is a NULL terminated buffer.
+		 */
+		void ocall_print_string([in, string] const char* str);
+		void ocall_println_string([in, string] const char* str);
+		
+		int ocall_fsync(int fd);
+		int ocall_ftruncate(int fd, off_t length);	
+		int ocall_unlink([in, string] const char* str);
+		off_t ocall_lseek(int fd, off_t offset, int whence) propagate_errno;
+		int ocall_lstat([in,string] const char *pathname, [in, out, size=size] struct stat *buf, size_t size) propagate_errno;		
+		int ocall_fstat(int fd, [in, out, size=size] struct stat *buf, size_t size) propagate_errno;		
+		int ocall_stat([in,string] const char *path, [in, out, size=size] struct stat *buf, size_t size);
+		int ocall_fcntl(int fd, int cmd, [in, size=size] void* arg, size_t size) propagate_errno;		
+		char* ocall_getcwd([out,size=size] char *buf, size_t size) propagate_errno;		
+		void ocall_exit(int s);
+		void* ocall_malloc(size_t size);
+		void* ocall_mmap([user_check] void *addr, size_t length, int prot, int flags, int fd, off_t offset);
+		void* ocall_realloc([user_check] void* ptr, size_t size);
+		void ocall_free([user_check] void* ptr);
+		void* ocall_fopen([user_check] const char *path, [user_check] const char *mode);
+		/* 2 ocalls to fwrite, depending on if ptr is allocated inside the enclave (fwrite_copy) or outside (fwrite) */
+		size_t ocall_fwrite_copy([in, size=size, count=nmemb] const void *ptr, size_t size, size_t nmemb, [user_check] void *stream);
+		size_t ocall_fwrite([user_check] const void *ptr, size_t size, size_t nmemb, [user_check] void *stream);
+		int ocall_fflush([user_check] void* stream);
+		int ocall_fclose([user_check] void* fp);
+		int ocall_close(int fd);
+		char *ocall_fgets([out, size=size] char *s, int size, [user_check] void *stream);
+		unsigned long long ocall_get_cpuid_for_openssl(void);
+		int ocall_open([in, string] const char *filename, int flags, mode_t mode);
+		int ocall_open64([in, string] const char *filename, int flags, mode_t mode);
+		int ocall_read(int fd, [out, size=count] void *buf, size_t count) propagate_errno;
+		int ocall_write(int fd, [in, size=count] const void *buf, size_t count) propagate_errno;
+		int ocall_getpid(void);
+		int ocall_getuid(void);
+		long int ocall_time([in] long int *t);
+		void* ocall_calloc(size_t nmemb, size_t size);
+
+		/* async queue - lthread */
+		int ocall__getpagesize();
+		int ocall_gettimeofday([out] struct timeval* tv, [out] struct timezone* tz);
+		void ocall_sgx_thread_sleep(void);
+		void ocall_sgx_thread_wake_up(void);
+		void ocall_nanosleep(unsigned long sec, unsigned long nanosec);
+		
+		/* Nginx callbacks */
+		void ocall_execute_ssl_ctx_info_callback([user_check] const SSL *ssl, int type, int val, [user_check] void *cb) allow (ecall_SSL_get_rbio,ecall_SSL_get_wbio,ecall_BIO_int_ctrl,ecall_SSL_state);
+		int ocall_alpn_select_cb([user_check] SSL *s, [in, out] unsigned char **out, [out] unsigned char *outlen, [in, size=inlen] const unsigned char *in, unsigned int inlen, [user_check] void *arg, [user_check] void *cb) allow(ecall_SSL_get_servername,ecall_SSL_select_next_proto);
+		int ocall_next_protos_advertised_cb([user_check] SSL *s, [in, out] unsigned char **buf, [in, out] unsigned int *len, [user_check] void *arg, [user_check] void* cb);
+		int ocall_pem_password_cb([in, size=size] char *buf, int size, int rwflag, [user_check] void *userdata, [user_check] void* cb);
+		int ocall_new_session_callback([user_check] struct ssl_st *ssl, [user_check] void *sess, [user_check] void* cb) allow (ecall_i2d_SSL_SESSION,ecall_SSL_CTX_get_ex_data,ecall_SSL_SESSION_get_id,ecall_SSL_CTX_get_timeout,ecall_SSL_SESSION_set_timeout);
+		void ocall_remove_session_cb([user_check] SSL_CTX *ctx, [user_check] void* sess, [user_check] void* cb);
+		void* ocall_get_session_cb([user_check] struct ssl_st *ssl, [in, size=len] unsigned char *data, int len, [out] int *copy, [user_check] void* cb) allow (ecall_d2i_SSL_SESSION,ecall_SSL_CTX_get_ex_data);
+		int ocall_ssl_ctx_callback_ctrl([user_check] SSL* ssl, [user_check] int* ad, [user_check] void* arg, [user_check] void* cb) allow (ecall_SSL_get_servername);
+		
+		/* Apache callbacks */
+		void ocall_crypto_set_locking_cb([user_check] void* cb, int mode, int type, [user_check] const char* file, int line);
+		unsigned long ocall_crypto_set_id_cb([user_check] void* cb);
+		int ocall_bio_create([user_check] BIO* b, [user_check] void*cb);
+		int ocall_bio_destroy([user_check] BIO* b, [user_check] void*cb);
+		int ocall_bio_read([user_check] BIO *b, [out,size=len] char *buf, int len, [user_check] void* cb) allow(ecall_ssl3_get_cipher_name_by_char);
+		int ocall_bio_write([user_check] BIO *b, [in,size=len] char *buf, int len, [user_check] void* cb) allow(ecall_SSL_state,ecall_sk_num,ecall_sk_value,ecall_SSL_get_ciphers,ecall_SSL_CIPHER_get_name);
+		long ocall_bio_ctrl([user_check] BIO *b, int cmd, long argl, [user_check] void *arg, [user_check] void* cb);
+		DH* ocall_SSL_CTX_set_tmp_dh_cb([user_check] SSL *ssl, int is_export, int keylength, [user_check] void* cb) allow(ecall_SSL_get_privatekey,ecall_EVP_PKEY_type,ecall_EVP_PKEY_bits);
+		
+		/* Squid callbacks */
+		void ocall_crypto_ex_free_cb([user_check] void *parent, [user_check] void *ptr, [user_check] CRYPTO_EX_DATA *ad, int idx, long argl, [user_check] void *argp, [user_check] void* cb);
+		void ocall_sk_pop_free_cb([user_check] void* data, [user_check] void* cb) allow(ecall_GENERAL_NAME_free);
+		int ocall_ssl_ctx_set_next_proto_select_cb([user_check] SSL *s, [user_check] unsigned char **out, [user_check] unsigned char *outlen, [user_check] const unsigned char *in, unsigned int inlen, [user_check] void *arg, [user_check] void* cb) allow(ecall_SSL_select_next_proto);
+	};
+};

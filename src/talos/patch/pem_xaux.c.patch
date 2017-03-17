@@ -1,0 +1,12 @@
+--- ./crypto/pem/pem_xaux.c	2017-03-08 11:15:50.685465292 +0000
++++ ../talos/./crypto/pem/pem_xaux.c	2017-03-08 11:13:57.407753297 +0000
+@@ -67,3 +67,9 @@
+ IMPLEMENT_PEM_rw(X509_AUX, X509, PEM_STRING_X509_TRUSTED, X509_AUX)
+ IMPLEMENT_PEM_rw(X509_CERT_PAIR, X509_CERT_PAIR, PEM_STRING_X509_PAIR,
+     X509_CERT_PAIR)
++
++
++X509 *ecall_PEM_read_bio_X509_AUX(BIO *bp, X509 **x, void *cb, void *u)
++{
++	return PEM_read_bio_X509_AUX(bp, x, (pem_password_cb*)cb, u);
++}

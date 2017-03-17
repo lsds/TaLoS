@@ -1,0 +1,217 @@
+--- ./ssl/ssl_sess.c	2017-03-08 11:15:50.837462223 +0000
++++ ../talos/./ssl/ssl_sess.c	2017-03-08 11:13:57.599749421 +0000
+@@ -143,6 +143,19 @@
+ 
+ #include "ssl_locl.h"
+ 
++#ifdef COMPILE_WITH_INTEL_SGX
++#include "sgx_error.h"
++
++sgx_status_t ocall_remove_session_cb(SSL_CTX* ctx, void* sess, void* cb);
++SSL_SESSION* ocall_get_session_cb_trampoline(SSL* ssl, unsigned char* data, int len, int* copy, void* cb);
++#endif
++
++#ifdef COMPILE_WITH_INTEL_SGX
++extern char *my_strdup(const char *s);
++#else
++#define my_strdup(s) strdup(s)
++#endif
++
+ static void SSL_SESSION_list_remove(SSL_CTX *ctx, SSL_SESSION *s);
+ static void SSL_SESSION_list_add(SSL_CTX *ctx, SSL_SESSION *s);
+ static int remove_session_lock(SSL_CTX *ctx, SSL_SESSION *c, int lck);
+@@ -199,7 +212,7 @@
+ {
+ 	SSL_SESSION *ss;
+ 
+-	ss = calloc(1, sizeof(SSL_SESSION));
++	ss = (SSL_SESSION*)calloc(1, sizeof(SSL_SESSION));
+ 	if (ss == NULL) {
+ 		SSLerr(SSL_F_SSL_SESSION_NEW, ERR_R_MALLOC_FAILURE);
+ 		return (0);
+@@ -208,7 +221,7 @@
+ 	ss->verify_result = 1; /* avoid 0 (= X509_V_OK) just in case */
+ 	ss->references = 1;
+ 	ss->timeout=60*5+4; /* 5 minute timeout by default */
+-	ss->time = time(NULL);
++	ss->time = 1471626829; // a random value corresponding to the 19/08/16 at 18:13 and a few seconds  //time(NULL);
+ 	ss->prev = NULL;
+ 	ss->next = NULL;
+ 	ss->tlsext_hostname = NULL;
+@@ -223,6 +236,10 @@
+ 	return (ss);
+ }
+ 
++void ecall_SSL_SESSION_get_id(void* s, unsigned char* buf, unsigned int *len) {
++	const unsigned char* sid = SSL_SESSION_get_id((const SSL_SESSION*)s, len);
++	memcpy((void*)buf, (const void*)sid, (size_t)*len);
++}
+ const unsigned char *
+ SSL_SESSION_get_id(const SSL_SESSION *s, unsigned int *len)
+ {
+@@ -362,7 +379,7 @@
+ 
+ sess_id_done:
+ 		if (s->tlsext_hostname) {
+-			ss->tlsext_hostname = strdup(s->tlsext_hostname);
++			ss->tlsext_hostname = my_strdup(s->tlsext_hostname);
+ 			if (ss->tlsext_hostname == NULL) {
+ 				SSLerr(SSL_F_SSL_GET_NEW_SESSION,
+ 				    ERR_R_INTERNAL_ERROR);
+@@ -469,8 +486,13 @@
+ 	    s->session_ctx->get_session_cb != NULL) {
+ 		int copy = 1;
+ 
+-		if ((ret = s->session_ctx->get_session_cb(s, session_id,
+-		    len, &copy))) {
++		//my_fprintf(stdout, "%s:%i (%s) gonna call get_session_cb @ %p\n", __FILE__, __LINE__, __func__, (void*)s->session_ctx->get_session_cb);
++#ifdef COMPILE_WITH_INTEL_SGX
++		ret = ocall_get_session_cb_trampoline(s, session_id, len, &copy, (void*)s->session_ctx->get_session_cb);
++#else
++		ret = s->session_ctx->get_session_cb(s, session_id, len, &copy);
++#endif
++		if (ret) {
+ 			s->session_ctx->stats.sess_cb_hit++;
+ 
+ 			/*
+@@ -670,8 +692,14 @@
+ 
+ 		if (ret) {
+ 			r->not_resumable = 1;
+-			if (ctx->remove_session_cb != NULL)
++			if (ctx->remove_session_cb != NULL) {
++				//my_fprintf(stdout, "%s:%i (%s) gonna call remove_session_cb @ %p\n", __FILE__, __LINE__, __func__, (void*)ctx->remove_session_cb);
++#ifdef COMPILE_WITH_INTEL_SGX
++				ocall_remove_session_cb(ctx, (void*)r, (void*)ctx->remove_session_cb);
++#else
+ 				ctx->remove_session_cb(ctx, r);
++#endif
++			}
+ 			SSL_SESSION_free(r);
+ 		}
+ 	} else
+@@ -757,6 +785,11 @@
+ }
+ 
+ long
++ecall_SSL_SESSION_set_timeout(SSL_SESSION *s, long t) {
++	return SSL_SESSION_set_timeout(s, t);
++}
++
++long
+ SSL_SESSION_set_timeout(SSL_SESSION *s, long t)
+ {
+ 	if (s == NULL)
+@@ -814,6 +847,10 @@
+ }
+ 
+ long
++ecall_SSL_CTX_set_timeout(SSL_CTX *s, long t) {
++	return SSL_CTX_set_timeout(s, t);
++}
++long
+ SSL_CTX_set_timeout(SSL_CTX *s, long t)
+ {
+ 	long l;
+@@ -827,6 +864,10 @@
+ }
+ 
+ long
++ecall_SSL_CTX_get_timeout(const SSL_CTX *s) {
++	return SSL_CTX_get_timeout(s);
++}
++long
+ SSL_CTX_get_timeout(const SSL_CTX *s)
+ {
+ 	if (s == NULL)
+@@ -903,8 +944,14 @@
+ 		(void)lh_SSL_SESSION_delete(p->cache, s);
+ 		SSL_SESSION_list_remove(p->ctx, s);
+ 		s->not_resumable = 1;
+-		if (p->ctx->remove_session_cb != NULL)
++		if (p->ctx->remove_session_cb != NULL) {
++			//my_fprintf(stdout, "%s:%i (%s) gonna call remove_session_cb @ %p\n", __FILE__, __LINE__, __func__, (void*)p->ctx->remove_session_cb);
++#ifdef COMPILE_WITH_INTEL_SGX
++			ocall_remove_session_cb(p->ctx, s, p->ctx->remove_session_cb);
++#else
+ 			p->ctx->remove_session_cb(p->ctx, s);
++#endif
++		}
+ 		SSL_SESSION_free(s);
+ 	}
+ }
+@@ -997,8 +1044,15 @@
+ }
+ 
+ void
++ecall_SSL_CTX_sess_set_new_cb(SSL_CTX *ctx,
++    void* cb) {
++	int (*callback)(struct ssl_st *ssl, SSL_SESSION *sess) = (int (*)(struct ssl_st *ssl, SSL_SESSION *sess))cb;
++	SSL_CTX_sess_set_new_cb(ctx, callback);
++}
++void
+ SSL_CTX_sess_set_new_cb(SSL_CTX *ctx,
+     int (*cb)(struct ssl_st *ssl, SSL_SESSION *sess)) {
++	//my_fprintf(0, "%s:%i (%s) set new_session_cb @ %p\n", __FILE__, __LINE__, __func__, (void*)cb);
+ 	ctx->new_session_cb = cb;
+ }
+ 
+@@ -1009,9 +1063,16 @@
+ }
+ 
+ void
++ecall_SSL_CTX_sess_set_remove_cb(SSL_CTX *ctx, void *cb)
++{
++	void (*callback)(SSL_CTX *ctx, SSL_SESSION *sess) = (void (*)(SSL_CTX *ctx, SSL_SESSION *sess))cb;
++	SSL_CTX_sess_set_remove_cb(ctx, callback);
++}
++void
+ SSL_CTX_sess_set_remove_cb(SSL_CTX *ctx,
+     void (*cb)(SSL_CTX *ctx, SSL_SESSION *sess))
+ {
++	//my_fprintf(stdout, "%s:%i (%s) set remove_session_cb @ %p\n", __FILE__, __LINE__, __func__, (void*)cb);
+ 	ctx->remove_session_cb = cb;
+ }
+ 
+@@ -1022,9 +1083,16 @@
+ }
+ 
+ void
++ecall_SSL_CTX_sess_set_get_cb(SSL_CTX *ctx, void* cb)
++{
++	SSL_SESSION *(*callback)(struct ssl_st *ssl, unsigned char *data, int len, int *copy) = (SSL_SESSION *(*)(struct ssl_st *ssl, unsigned char *data, int len, int *copy))cb;
++	SSL_CTX_sess_set_get_cb(ctx, callback);
++}
++void
+ SSL_CTX_sess_set_get_cb(SSL_CTX *ctx, SSL_SESSION *(*cb)(struct ssl_st *ssl,
+     unsigned char *data, int len, int *copy))
+ {
++	//my_fprintf(stdout, "%s:%i (%s) set get_session_cb @ %p\n", __FILE__, __LINE__, __func__, (void*)cb);
+ 	ctx->get_session_cb = cb;
+ }
+ 
+@@ -1035,10 +1103,22 @@
+ 	return ctx->get_session_cb;
+ }
+ 
++#ifdef COMPILE_WITH_INTEL_SGX
++extern void* ssl_ctx_info_cb_address;
++#endif
++
+ void
+-SSL_CTX_set_info_callback(SSL_CTX *ctx,
+-    void (*cb)(const SSL *ssl, int type, int val))
++ecall_SSL_CTX_set_info_callback(SSL_CTX *ctx, void *cb)
+ {
++#ifdef COMPILE_WITH_INTEL_SGX
++	ssl_ctx_info_cb_address = cb;
++	cb = ssl_ctx_info_fake_cb;
++#endif
++	SSL_CTX_set_info_callback(ctx, (void(*)(const SSL*, int, int))cb);
++}
++void
++SSL_CTX_set_info_callback(SSL_CTX *ctx,
++    void (*cb)(const SSL *ssl, int type, int val)) {
+ 	ctx->info_callback = cb;
+ }
+ 

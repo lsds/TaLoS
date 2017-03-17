@@ -1,0 +1,13 @@
+--- ./ssl/t1_meth.c	2017-03-08 11:15:50.845462060 +0000
++++ ../talos/./ssl/t1_meth.c	2017-03-08 11:13:57.611749176 +0000
+@@ -205,6 +205,10 @@
+ }
+ 
+ const SSL_METHOD *
++ecall_SSLv23_method(void) {
++	return SSLv23_method();
++}
++const SSL_METHOD *
+ SSLv23_method(void)
+ {
+ 	return (TLS_method());

@@ -1,0 +1,69 @@
+--- ./crypto/x509/x509_set.c	2017-03-08 11:15:50.717464646 +0000
++++ ../talos/./crypto/x509/x509_set.c	2017-03-08 11:13:57.443752571 +0000
+@@ -64,6 +64,11 @@
+ #include <openssl/x509.h>
+ 
+ int
++ecall_X509_set_version(X509 *x, long version)
++{
++	return X509_set_version(x, version);
++}
++int
+ X509_set_version(X509 *x, long version)
+ {
+ 	if (x == NULL)
+@@ -94,6 +99,10 @@
+ }
+ 
+ int
++ecall_X509_set_issuer_name(X509 *x, X509_NAME *name) {
++	return X509_set_issuer_name(x, name);
++}
++int
+ X509_set_issuer_name(X509 *x, X509_NAME *name)
+ {
+ 	if ((x == NULL) || (x->cert_info == NULL))
+@@ -102,6 +111,10 @@
+ }
+ 
+ int
++ecall_X509_set_subject_name(X509 *x, X509_NAME *name) {
++	return X509_set_subject_name(x, name);
++}
++int
+ X509_set_subject_name(X509 *x, X509_NAME *name)
+ {
+ 	if ((x == NULL) || (x->cert_info == NULL))
+@@ -110,6 +123,10 @@
+ }
+ 
+ int
++ecall_X509_set_notBefore(X509 *x, const ASN1_TIME *tm) {
++	return X509_set_notBefore(x, tm);
++}
++int
+ X509_set_notBefore(X509 *x, const ASN1_TIME *tm)
+ {
+ 	ASN1_TIME *in;
+@@ -128,6 +145,10 @@
+ }
+ 
+ int
++ecall_X509_set_notAfter(X509 *x, const ASN1_TIME *tm) {
++	return X509_set_notAfter(x, tm);
++}
++int
+ X509_set_notAfter(X509 *x, const ASN1_TIME *tm)
+ {
+ 	ASN1_TIME *in;
+@@ -146,6 +167,10 @@
+ }
+ 
+ int
++ecall_X509_set_pubkey(X509 *x, EVP_PKEY *pkey) {
++	return X509_set_pubkey(x, pkey);
++}
++int
+ X509_set_pubkey(X509 *x, EVP_PKEY *pkey)
+ {
+ 	if ((x == NULL) || (x->cert_info == NULL))

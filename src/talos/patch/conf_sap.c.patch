@@ -1,0 +1,13 @@
+--- ./crypto/conf/conf_sap.c	2017-03-08 11:15:50.585467312 +0000
++++ ../talos/./crypto/conf/conf_sap.c	2017-03-08 11:13:57.291755639 +0000
+@@ -78,6 +78,10 @@
+ static int openssl_configured = 0;
+ 
+ void
++ecall_OPENSSL_config(const char *config_name) {
++	OPENSSL_config(config_name);
++}
++void
+ OPENSSL_config(const char *config_name)
+ {
+ 	if (openssl_configured)

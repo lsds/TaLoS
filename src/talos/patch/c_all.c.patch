@@ -1,0 +1,14 @@
+--- ./crypto/evp/c_all.c	2017-03-08 11:15:50.625466505 +0000
++++ ../talos/./crypto/evp/c_all.c	2017-03-08 11:13:57.355754348 +0000
+@@ -283,6 +283,11 @@
+ }
+ 
+ void
++ecall_OPENSSL_add_all_algorithms_noconf(void)
++{
++	OPENSSL_add_all_algorithms_noconf();
++}
++void
+ OPENSSL_add_all_algorithms_noconf(void)
+ {
+ 	OPENSSL_cpuid_setup();

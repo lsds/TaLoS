@@ -1,0 +1,37 @@
+--- ./crypto/evp/p_lib.c	2017-03-08 11:15:50.645466101 +0000
++++ ../talos/./crypto/evp/p_lib.c	2017-03-08 11:13:57.375753945 +0000
+@@ -85,6 +85,10 @@
+ static void EVP_PKEY_free_it(EVP_PKEY *x);
+ 
+ int
++ecall_EVP_PKEY_bits(EVP_PKEY *pkey) {
++	return EVP_PKEY_bits(pkey);
++}
++int
+ EVP_PKEY_bits(EVP_PKEY *pkey)
+ {
+ 	if (pkey && pkey->ameth && pkey->ameth->pkey_bits)
+@@ -371,6 +375,12 @@
+ }
+ #endif
+ 
++
++int
++ecall_EVP_PKEY_type(int type)
++{
++return EVP_PKEY_type(type);
++}
+ int
+ EVP_PKEY_type(int type)
+ {
+@@ -402,6 +412,10 @@
+ }
+ 
+ void
++ecall_EVP_PKEY_free(EVP_PKEY *x) {
++	EVP_PKEY_free(x);
++}
++void
+ EVP_PKEY_free(EVP_PKEY *x)
+ {
+ 	int i;

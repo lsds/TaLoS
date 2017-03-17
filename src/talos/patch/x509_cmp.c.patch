@@ -1,0 +1,40 @@
+--- ./crypto/x509/x509_cmp.c	2017-03-08 11:15:50.709464809 +0000
++++ ../talos/./crypto/x509/x509_cmp.c	2017-03-08 11:13:57.431752812 +0000
+@@ -165,11 +165,26 @@
+ #endif
+ 
+ X509_NAME *
++ecall_X509_get_subject_name(X509 *a) {
++	return X509_get_subject_name(a);
++}
++X509_NAME *
+ X509_get_subject_name(X509 *a)
+ {
+ 	return (a->cert_info->subject);
+ }
+ 
++ASN1_OBJECT* X509_get_cert_key_algor_algorithm(X509* x) {
++	return x->cert_info->key->algor->algorithm;
++}
++ASN1_OBJECT* ecall_X509_get_cert_key_algor_algorithm(X509* x) {
++	return X509_get_cert_key_algor_algorithm(x);
++}
++
++ASN1_INTEGER *
++ecall_X509_get_serialNumber(X509 *a) {
++	return X509_get_serialNumber(a);
++}
+ ASN1_INTEGER *
+ X509_get_serialNumber(X509 *a)
+ {
+@@ -335,6 +350,10 @@
+ }
+ 
+ int
++ecall_X509_check_private_key(X509 *x, EVP_PKEY *k) {
++	return X509_check_private_key(x, k);
++}
++int
+ X509_check_private_key(X509 *x, EVP_PKEY *k)
+ {
+ 	EVP_PKEY *xk;

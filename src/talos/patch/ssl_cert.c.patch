@@ -1,0 +1,41 @@
+--- ./ssl/ssl_cert.c	2017-03-08 11:15:50.821462545 +0000
++++ ../talos/./ssl/ssl_cert.c	2017-03-08 11:13:57.583749743 +0000
+@@ -130,6 +130,12 @@
+ 
+ #include "ssl_locl.h"
+ 
++#ifdef COMPILE_WITH_INTEL_SGX
++extern int my_asprintf(char **strp, const char *fmt, ...);
++#else
++#define my_asprintf(strp, fmt, ...) asprintf(strp, fmt, __VA_ARGS__)
++#endif
++
+ int
+ SSL_get_ex_data_X509_STORE_CTX_idx(void)
+ {
+@@ -493,10 +499,14 @@
+ 	set_client_CA_list(&(ctx->client_CA), name_list);
+ }
+ 
+-STACK_OF(X509_NAME) *
++void*
++ecall_SSL_CTX_get_client_CA_list(const SSL_CTX *ctx) {
++	return SSL_CTX_get_client_CA_list(ctx);
++}
++void*
+ SSL_CTX_get_client_CA_list(const SSL_CTX *ctx)
+ {
+-	return (ctx->client_CA);
++	return (void*)(ctx->client_CA);
+ }
+ 
+ STACK_OF(X509_NAME) *
+@@ -703,7 +713,7 @@
+ 	if (dirp) {
+ 		struct dirent *dp;
+ 		while ((dp = readdir(dirp)) != NULL) {
+-			if (asprintf(&path, "%s/%s", dir, dp->d_name) != -1) {
++			if (my_asprintf(&path, "%s/%s", dir, dp->d_name) != -1) {
+ 				ret = SSL_add_file_cert_subjects_to_stack(
+ 				    stack, path);
+ 				free(path);

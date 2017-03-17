@@ -1,0 +1,24 @@
+--- ./ssl/bs_cbs.c	2017-03-08 11:15:50.789463193 +0000
++++ ../talos/./ssl/bs_cbs.c	2017-03-08 11:13:57.547750468 +0000
+@@ -24,6 +24,12 @@
+ 
+ #include "bytestring.h"
+ 
++#ifdef COMPILE_WITH_INTEL_SGX
++extern char *my_strndup(const char *s, size_t n);
++#else
++#define my_strndup(s, n) strndup(s, n)
++#endif
++
+ void
+ CBS_init(CBS *cbs, const uint8_t *data, size_t len)
+ {
+@@ -99,7 +105,7 @@
+ CBS_strdup(const CBS *cbs, char **out_ptr)
+ {
+ 	free(*out_ptr);
+-	*out_ptr = strndup((const char *)cbs->data, cbs->len);
++	*out_ptr = my_strndup((const char *)cbs->data, cbs->len);
+ 	return (*out_ptr != NULL);
+ }
+ 

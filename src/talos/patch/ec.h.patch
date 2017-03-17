@@ -1,0 +1,24 @@
+--- ./include/openssl/ec.h	2017-03-08 11:15:50.753463919 +0000
++++ ../talos/./include/openssl/ec.h	2017-03-08 11:13:57.495751520 +0000
+@@ -193,6 +193,7 @@
+ /** Frees a EC_GROUP object
+  *  \param  group  EC_GROUP object to be freed.
+  */
++void ecall_EC_GROUP_free(EC_GROUP *group);
+ void EC_GROUP_free(EC_GROUP *group);
+ 
+ /** Clears and frees a EC_GROUP object
+@@ -730,11 +731,13 @@
+  *  \param  nid  NID of the named curve.
+  *  \return EC_KEY object or NULL if an error occurred. 
+  */
++EC_KEY *ecall_EC_KEY_new_by_curve_name(int nid);
+ EC_KEY *EC_KEY_new_by_curve_name(int nid);
+ 
+ /** Frees a EC_KEY object.
+  *  \param  key  EC_KEY object to be freed.
+  */
++void ecall_EC_KEY_free(EC_KEY *key);
+ void EC_KEY_free(EC_KEY *key);
+ 
+ /** Copies a EC_KEY object.

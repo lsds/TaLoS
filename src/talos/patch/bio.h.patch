@@ -1,0 +1,33 @@
+--- ./include/openssl/bio.h	2017-03-08 11:15:50.741464161 +0000
++++ ../talos/./include/openssl/bio.h	2017-03-08 11:13:57.479751841 +0000
+@@ -568,12 +568,17 @@
+ BIO_asn1_get_suffix(BIO *b, asn1_ps_func **psuffix,
+ asn1_ps_func **psuffix_free);
+ 
++BIO_METHOD *ecall_BIO_s_file(void );
+ BIO_METHOD *BIO_s_file(void );
++BIO *ecall_BIO_new_file(const char *filename, const char *mode);
+ BIO *BIO_new_file(const char *filename, const char *mode);
+ BIO *BIO_new_fp(FILE *stream, int close_flag);
+ # define BIO_s_file_internal	BIO_s_file
++BIO *	ecall_BIO_new(BIO_METHOD *type, int* method_in_enclave);
+ BIO *	BIO_new(BIO_METHOD *type);
++int	BIO_set_from_ecall(BIO *a, BIO_METHOD *type);
+ int	BIO_set(BIO *a, BIO_METHOD *type);
++int	ecall_BIO_free(BIO *a);
+ int	BIO_free(BIO *a);
+ void	BIO_vfree(BIO *a);
+ int	BIO_read(BIO *b, void *data, int len)
+@@ -584,10 +589,12 @@
+ 		__attribute__((__bounded__(__buffer__,2,3)));
+ int	BIO_puts(BIO *bp, const char *buf);
+ int	BIO_indent(BIO *b, int indent, int max);
++long	ecall_BIO_ctrl(BIO *bp, int cmd, long larg, void *parg);
+ long	BIO_ctrl(BIO *bp, int cmd, long larg, void *parg);
+ long	BIO_callback_ctrl(BIO *b, int cmd,
+ 	    void (*fp)(struct bio_st *, int, const char *, int, long, long));
+ char *	BIO_ptr_ctrl(BIO *bp, int cmd, long larg);
++long	ecall_BIO_int_ctrl(BIO *bp, int cmd, long larg, int iarg);
+ long	BIO_int_ctrl(BIO *bp, int cmd, long larg, int iarg);
+ BIO *	BIO_push(BIO *b, BIO *append);
+ BIO *	BIO_pop(BIO *b);

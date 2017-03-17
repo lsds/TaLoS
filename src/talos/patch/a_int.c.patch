@@ -1,0 +1,24 @@
+--- ./crypto/asn1/a_int.c	2017-03-08 11:15:50.517468687 +0000
++++ ../talos/./crypto/asn1/a_int.c	2017-03-08 11:13:57.211757256 +0000
+@@ -406,6 +406,10 @@
+ }
+ 
+ ASN1_INTEGER *
++ecall_BN_to_ASN1_INTEGER(const BIGNUM *bn, ASN1_INTEGER *ai) {
++	return BN_to_ASN1_INTEGER(bn, ai);
++}
++ASN1_INTEGER *
+ BN_to_ASN1_INTEGER(const BIGNUM *bn, ASN1_INTEGER *ai)
+ {
+ 	ASN1_INTEGER *ret;
+@@ -449,6 +453,10 @@
+ }
+ 
+ BIGNUM *
++ecall_ASN1_INTEGER_to_BN(const ASN1_INTEGER *ai, BIGNUM *bn) {
++	return ASN1_INTEGER_to_BN(ai, bn);
++}
++BIGNUM *
+ ASN1_INTEGER_to_BN(const ASN1_INTEGER *ai, BIGNUM *bn)
+ {
+ 	BIGNUM *ret;

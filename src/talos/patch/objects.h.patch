@@ -1,0 +1,27 @@
+--- ./include/openssl/objects.h	2017-03-08 11:15:50.769463596 +0000
++++ ../talos/./include/openssl/objects.h	2017-03-08 11:13:57.519751035 +0000
+@@ -1002,12 +1002,16 @@
+ ASN1_OBJECT *	OBJ_dup(const ASN1_OBJECT *o);
+ ASN1_OBJECT *	OBJ_nid2obj(int n);
+ const char *	OBJ_nid2ln(int n);
++char *	ecall_OBJ_nid2sn(int n);
+ const char *	OBJ_nid2sn(int n);
++int		ecall_OBJ_obj2nid(const ASN1_OBJECT *o);
+ int		OBJ_obj2nid(const ASN1_OBJECT *o);
+ ASN1_OBJECT *	OBJ_txt2obj(const char *s, int no_name);
+ int	OBJ_obj2txt(char *buf, int buf_len, const ASN1_OBJECT *a, int no_name);
++int		ecall_OBJ_txt2nid(const char *s);
+ int		OBJ_txt2nid(const char *s);
+ int		OBJ_ln2nid(const char *s);
++int		ecall_OBJ_sn2nid(const char *s);
+ int		OBJ_sn2nid(const char *s);
+ int		OBJ_cmp(const ASN1_OBJECT *a, const ASN1_OBJECT *b);
+ const void *	OBJ_bsearch_(const void *key, const void *base, int num,
+@@ -1097,6 +1101,7 @@
+ 
+ int		OBJ_new_nid(int num);
+ int		OBJ_add_object(const ASN1_OBJECT *obj);
++int		ecall_OBJ_create(const char *oid, const char *sn, const char *ln);
+ int		OBJ_create(const char *oid, const char *sn, const char *ln);
+ void		OBJ_cleanup(void );
+ int		OBJ_create_objects(BIO *in);

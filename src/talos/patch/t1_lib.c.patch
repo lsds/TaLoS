@@ -1,0 +1,60 @@
+--- ./ssl/t1_lib.c	2017-03-08 11:15:50.845462060 +0000
++++ ../talos/./ssl/t1_lib.c	2017-03-08 11:13:57.607749258 +0000
+@@ -119,6 +119,19 @@
+ #include "ssl_locl.h"
+ #include "bytestring.h"
+ 
++#ifdef COMPILE_WITH_INTEL_SGX
++#include "sgx_error.h"
++
++int ocall_alpn_select_cb_wrapper(SSL* s, unsigned char** out, unsigned char* outlen, const unsigned char* in, unsigned int inlen, void* arg, void* cb);
++int ocall_next_protos_advertised_cb_wrapper(SSL* s, unsigned char** buf, unsigned int* len, void* arg, void* cb);
++#endif
++
++#ifdef COMPILE_WITH_INTEL_SGX
++extern char *my_strdup(const char *s);
++#else
++#define my_strdup(s) strdup(s)
++#endif
++
+ static int tls_decrypt_ticket(SSL *s, const unsigned char *tick, int ticklen,
+     const unsigned char *sess_id, int sesslen,
+     SSL_SESSION **psess);
+@@ -1100,8 +1113,13 @@
+ 		unsigned int npalen;
+ 		int r;
+ 
++#ifdef COMPILE_WITH_INTEL_SGX
++		r = ocall_next_protos_advertised_cb_wrapper(s, (unsigned char**)&npa, &npalen,
++		    s->ctx->next_protos_advertised_cb_arg, s->ctx->next_protos_advertised_cb);
++#else
+ 		r = s->ctx->next_protos_advertised_cb(s, &npa, &npalen,
+ 		    s->ctx->next_protos_advertised_cb_arg);
++#endif
+ 		if (r == SSL_TLSEXT_ERR_OK) {
+ 			if ((size_t)(limit - ret) < 4 + npalen)
+ 				return NULL;
+@@ -1179,8 +1197,13 @@
+ 			goto parse_error;
+ 	}
+ 
++#ifdef COMPILE_WITH_INTEL_SGX
++	r = ocall_alpn_select_cb_wrapper(s, (unsigned char**)&selected, &selected_len,
++		    CBS_data(&alpn), CBS_len(&alpn), s->ctx->alpn_select_cb_arg, (void*)s->ctx->alpn_select_cb);
++#else
+ 	r = s->ctx->alpn_select_cb(s, &selected, &selected_len,
+-	    CBS_data(&alpn), CBS_len(&alpn), s->ctx->alpn_select_cb_arg);
++		    CBS_data(&alpn), CBS_len(&alpn), s->ctx->alpn_select_cb_arg);
++#endif
+ 	if (r == SSL_TLSEXT_ERR_OK) {
+ 		free(s->s3->alpn_selected);
+ 		if ((s->s3->alpn_selected = malloc(selected_len)) == NULL) {
+@@ -1786,7 +1809,7 @@
+ 		if (s->tlsext_hostname) {
+ 			if (s->session->tlsext_hostname == NULL) {
+ 				s->session->tlsext_hostname =
+-				    strdup(s->tlsext_hostname);
++				    my_strdup(s->tlsext_hostname);
+ 
+ 				if (!s->session->tlsext_hostname) {
+ 					*al = SSL_AD_UNRECOGNIZED_NAME;

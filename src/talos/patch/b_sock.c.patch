@@ -1,0 +1,24 @@
+--- ./crypto/bio/b_sock.c	2017-03-08 11:15:50.549468041 +0000
++++ ../talos/./crypto/bio/b_sock.c	2017-03-08 11:13:57.239756690 +0000
+@@ -75,6 +75,12 @@
+ #include <openssl/buffer.h>
+ #include <openssl/err.h>
+ 
++#ifdef COMPILE_WITH_INTEL_SGX
++extern char *my_strdup(const char *s);
++#else
++#define my_strdup(s) strdup(s)
++#endif
++
+ int
+ BIO_get_host_ip(const char *str, unsigned char *ip)
+ {
+@@ -220,7 +226,7 @@
+ 	unsigned long l;
+ 	int err_num;
+ 
+-	if (host == NULL || (str = strdup(host)) == NULL)
++	if (host == NULL || (str = my_strdup(host)) == NULL)
+ 		return (-1);
+ 
+ 	h = p = NULL;

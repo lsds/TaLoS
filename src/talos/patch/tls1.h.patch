@@ -1,0 +1,11 @@
+--- ./include/openssl/tls1.h	2017-03-08 11:15:50.781463353 +0000
++++ ../talos/./include/openssl/tls1.h	2017-03-08 11:13:57.539750632 +0000
+@@ -301,6 +301,8 @@
+ 
+ #define TLSEXT_MAXLEN_host_name 255
+ 
++void ecall_SSL_get_servername(const SSL *s, int type, char* servername, int* len);
++const char *SSL_get_servername(const SSL *s, const int type);
+ const char *SSL_get_servername(const SSL *s, const int type);
+ int SSL_get_servername_type(const SSL *s);
+ /* SSL_export_keying_material exports a value derived from the master secret,

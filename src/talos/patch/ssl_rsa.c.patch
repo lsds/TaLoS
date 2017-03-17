@@ -1,0 +1,82 @@
+--- ./ssl/ssl_rsa.c	2017-03-08 11:15:50.833462303 +0000
++++ ../talos/./ssl/ssl_rsa.c	2017-03-08 11:13:57.599749421 +0000
+@@ -70,6 +70,18 @@
+ static int ssl_set_pkey(CERT *c, EVP_PKEY *pkey);
+ static int ssl_ctx_use_certificate_chain_bio(SSL_CTX *, BIO *);
+ 
++#ifdef COMPILE_WITH_INTEL_SGX
++extern SSL* SSL_get_in_pointer(SSL* out_s);
++#endif
++
++int
++ecall_SSL_use_certificate(SSL *ssl, X509 *x)
++{
++#ifdef COMPILE_WITH_INTEL_SGX
++	ssl = SSL_get_in_pointer(ssl);
++#endif
++	return SSL_use_certificate(ssl, x);
++}
+ int
+ SSL_use_certificate(SSL *ssl, X509 *x)
+ {
+@@ -272,6 +284,15 @@
+ }
+ 
+ int
++ecall_SSL_use_PrivateKey(SSL *ssl, EVP_PKEY *pkey)
++{
++#ifdef COMPILE_WITH_INTEL_SGX
++	ssl = SSL_get_in_pointer(ssl);
++#endif
++	return SSL_use_PrivateKey(ssl, pkey);
++}
++
++int
+ SSL_use_PrivateKey(SSL *ssl, EVP_PKEY *pkey)
+ {
+ 	int ret;
+@@ -360,6 +381,10 @@
+ 	return (ssl_set_cert(ctx->cert, x));
+ }
+ 
++int ecall_SSL_CTX_use_certificate(SSL_CTX *ctx, X509 *x) {
++	return SSL_CTX_use_certificate(ctx, x);
++}
++
+ static int
+ ssl_set_cert(CERT *c, X509 *x)
+ {
+@@ -562,6 +587,10 @@
+ }
+ 
+ int
++ecall_SSL_CTX_use_PrivateKey(SSL_CTX *ctx, EVP_PKEY *pkey) {
++	return SSL_CTX_use_PrivateKey(ctx, pkey);
++}
++int
+ SSL_CTX_use_PrivateKey(SSL_CTX *ctx, EVP_PKEY *pkey)
+ {
+ 	if (pkey == NULL) {
+@@ -577,6 +606,11 @@
+ }
+ 
+ int
++ecall_SSL_CTX_use_PrivateKey_file(SSL_CTX *ctx, const char *file, int type) {
++	return SSL_CTX_use_PrivateKey_file(ctx, file, type);
++}
++
++int
+ SSL_CTX_use_PrivateKey_file(SSL_CTX *ctx, const char *file, int type)
+ {
+ 	int j, ret = 0;
+@@ -708,6 +742,10 @@
+ }
+ 
+ int
++ecall_SSL_CTX_use_certificate_chain_file(SSL_CTX *ctx, const char *file) {
++	return SSL_CTX_use_certificate_chain_file(ctx, file);
++}
++int
+ SSL_CTX_use_certificate_chain_file(SSL_CTX *ctx, const char *file)
+ {
+ 	BIO *in;

@@ -1,0 +1,1701 @@
+--- ./ssl/ssl_lib.c	2017-03-08 11:15:50.829462384 +0000
++++ ../talos/./ssl/ssl_lib.c	2017-03-08 11:13:57.591749580 +0000
+@@ -157,6 +157,36 @@
+ 
+ #include "bytestring.h"
+ 
++#ifdef COMPILE_WITH_INTEL_SGX
++#include "sgx_error.h"
++#include "sgx_trts.h"
++#include "sgx_spinlock.h"
++#include "hashmap.h"
++#include "ecall_queue.h"
++#include "lthread.h"
++#include "mpmc_queue.h"
++#include "enclaveshim_ocalls.h"
++#endif
++
++#ifdef COMPILE_WITH_INTEL_SGX
++extern sgx_status_t ocall_malloc(void** retval, size_t size);
++extern void ocall_exit(int code);
++extern void ocall_execute_ssl_ctx_info_callback(const SSL *ssl, int type, int val, void* cb);
++extern int ocall_pem_password_cb(int* retval, char* buf, int size, int rwflag, void* userdata, void* cb);
++extern int ocall_ssl_ctx_callback_ctrl(int* retval, SSL* ssl, int* ad, void* arg, void* cb);
++extern int ocall_new_session_callback(int* retval, struct ssl_st* ssl, void* sess, void* cb);
++sgx_status_t ocall_alpn_select_cb(int* retval, SSL* s, unsigned char** out, unsigned char* outlen, const unsigned char* in, unsigned int inlen, void* arg, void* cb);
++sgx_status_t ocall_next_protos_advertised_cb(int* retval, SSL* s, unsigned char** buf, unsigned int* len, void* arg, void* cb);
++sgx_status_t ocall_crypto_ex_free_cb(void *parent, void *ptr, CRYPTO_EX_DATA *ad, int idx, long argl, void *argp, void* cb);
++sgx_status_t ocall_sk_pop_free_cb(void* data, void* cb);
++sgx_status_t ocall_get_session_cb(void** retval, struct ssl_st* ssl, unsigned char* data, int len, int* copy, void* cb);
++
++/*
++extern int ocall_ssl_ctx_callback_ctrl(SSL* ssl, int* ad, void* arg, void* cb);
++extern int ocall_pem_password_cb(char *buf, int size, int rwflag, void *userdata, void* cb);
++extern int ocall_new_session_callback(struct ssl_st *ssl, void *sess, void* cb);
++*/
++#endif
+ const char *SSL_version_str = OPENSSL_VERSION_TEXT;
+ 
+ SSL3_ENC_METHOD ssl3_undef_enc_method = {
+@@ -260,6 +290,113 @@
+ 	return (1);
+ }
+ 
++#ifdef COMPILE_WITH_INTEL_SGX
++
++hashmap* ssl_hardening_map = NULL;
++sgx_spinlock_t ssl_hardening_map_lock = 0;
++
++void SSL_copy_fields_to_out_struct(const SSL* in, SSL* out) {
++	out->state = in->state;
++	out->verify_mode = in->verify_mode;
++	out->verify_result = in->verify_result;
++	out->wbio = in->wbio;
++	out->shutdown = in->shutdown;
++	out->ctx = in->ctx;
++	out->verify_callback = in->verify_callback;
++	out->session = (SSL_SESSION*)(in->session ? in->session->peer : NULL); // we store the X509* pointer into the SSL_SESSION* field :)
++	if (out->s3 && in->s3) { 	out->s3->flags = in->s3->flags; }
++	out->references = in->references;
++	SSL_set_session_id_context(out, in->sid_ctx, in->sid_ctx_length);
++}
++
++void SSL_copy_fields_to_in_struct(SSL* in, const SSL* out) {
++	//XXX we also want to check the values
++	in->state = out->state;
++	in->verify_mode = out->verify_mode;
++	in->verify_result = out->verify_result;
++	in->wbio = out->wbio;
++	in->shutdown = out->shutdown;
++	in->ctx = out->ctx;
++	in->verify_callback = out->verify_callback;
++	if (out->s3 && in->s3) { 	in->s3->flags = out->s3->flags; }
++	in->references = out->references;
++	SSL_set_session_id_context(in, out->sid_ctx, out->sid_ctx_length);
++}
++
++SSL* SSL_get_in_pointer(SSL* out_s) {
++	sgx_spin_lock(&ssl_hardening_map_lock);
++	SSL* in_s = (SSL*) hashmapGet(ssl_hardening_map, (unsigned long)out_s);
++	sgx_spin_unlock(&ssl_hardening_map_lock);
++	return in_s;
++}
++
++int ocall_alpn_select_cb_wrapper(SSL* s, unsigned char** out, unsigned char* outlen, const unsigned char* in, unsigned int inlen, void* arg, void* cb) {
++	SSL* in_s = s;
++	int retval;
++
++	sgx_spin_lock(&ssl_hardening_map_lock);
++	SSL* out_s = (SSL*) hashmapGet(ssl_hardening_map, (unsigned long)in_s);
++	sgx_spin_unlock(&ssl_hardening_map_lock);
++
++	SSL_copy_fields_to_out_struct(in_s, out_s);
++	retval = ocall_alpn_select_cb_async_wrapper(out_s, out, outlen, in, inlen, arg, cb);
++	SSL_copy_fields_to_in_struct(in_s, out_s);
++
++	return retval;
++}
++
++int ocall_next_protos_advertised_cb_wrapper(SSL* s, unsigned char** buf, unsigned int* len, void* arg, void* cb) {
++	SSL* in_s = s;
++	int retval;
++
++	sgx_spin_lock(&ssl_hardening_map_lock);
++	SSL* out_s = (SSL*) hashmapGet(ssl_hardening_map, (unsigned long)in_s);
++	sgx_spin_unlock(&ssl_hardening_map_lock);
++
++	SSL_copy_fields_to_out_struct(in_s, out_s);
++	sgx_status_t ret = ocall_next_protos_advertised_cb(&retval, out_s, buf, len, arg, cb);
++	if (ret != SGX_SUCCESS) {
++		my_printf("%s ocall error: %d\n", __func__, ret);
++		retval = 0;
++	}
++	SSL_copy_fields_to_in_struct(in_s, out_s);
++	return retval;
++}
++
++void crypto_ex_free_cb_wrapper(void *parent, void *ptr, CRYPTO_EX_DATA *ad, int idx, long argl, void *argp, void* cb) {
++	sgx_status_t ret = ocall_crypto_ex_free_cb(parent, ptr, ad, idx, argl, argp, cb);
++	if (ret != SGX_SUCCESS) {
++		my_printf("%s ocall error: %d\n", __func__, ret);
++	}
++}
++
++void ocall_sk_pop_free_cb_wrapper(void* data, void* cb) {
++	sgx_status_t ret = ocall_sk_pop_free_cb(data, cb);
++	if (ret != SGX_SUCCESS) {
++		my_printf("%s ocall error: %d\n", __func__, ret);
++	}
++}
++#endif
++
++SSL *
++ecall_SSL_new(SSL_CTX *ctx, SSL* out_s) {
++#ifdef COMPILE_WITH_INTEL_SGX
++	SSL* s = SSL_new(ctx);
++	SSL_copy_fields_to_out_struct(s, out_s);
++
++	sgx_spin_lock(&ssl_hardening_map_lock);
++	if (!ssl_hardening_map) {
++		ssl_hardening_map = hashmapCreate(0);
++	}
++	hashmapInsert(ssl_hardening_map, (const void*)out_s, (unsigned long)s); // map[s] = out_s
++	hashmapInsert(ssl_hardening_map, (const void*)s, (unsigned long)out_s); // map[out_s] = s
++	sgx_spin_unlock(&ssl_hardening_map_lock);
++
++	return out_s;
++#else
++	return SSL_new(ctx);
++#endif
++}
+ SSL *
+ SSL_new(SSL_CTX *ctx)
+ {
+@@ -368,6 +505,11 @@
+ }
+ 
+ int
++ecall_SSL_CTX_set_session_id_context(SSL_CTX *ctx, const unsigned char *sid_ctx,
++    unsigned int sid_ctx_len) {
++	return SSL_CTX_set_session_id_context(ctx, sid_ctx, sid_ctx_len);
++}
++int
+ SSL_CTX_set_session_id_context(SSL_CTX *ctx, const unsigned char *sid_ctx,
+     unsigned int sid_ctx_len)
+ {
+@@ -383,6 +525,25 @@
+ }
+ 
+ int
++ecall_SSL_set_session_id_context(SSL *ssl, const unsigned char *sid_ctx,
++	unsigned int sid_ctx_len)
++{
++#ifdef COMPILE_WITH_INTEL_SGX
++	SSL* out_s = ssl;
++
++	sgx_spin_lock(&ssl_hardening_map_lock);
++	SSL* in_s = (SSL*) hashmapGet(ssl_hardening_map, (unsigned long)out_s);
++	sgx_spin_unlock(&ssl_hardening_map_lock);
++
++	SSL_copy_fields_to_in_struct(in_s, out_s);
++	int ret = SSL_set_session_id_context(in_s, sid_ctx, sid_ctx_len);
++	SSL_copy_fields_to_out_struct(in_s, out_s);
++	return ret;
++#else
++	return SSL_set_session_id_context(ssl, sid_ctx, sid_ctx_len);
++#endif
++}
++int
+ SSL_set_session_id_context(SSL *ssl, const unsigned char *sid_ctx,
+     unsigned int sid_ctx_len)
+ {
+@@ -477,17 +638,39 @@
+ 	return (X509_VERIFY_PARAM_set1(ssl->param, vpm));
+ }
+ 
++
++void
++ecall_SSL_free(SSL *s) {
++#ifdef COMPILE_WITH_INTEL_SGX
++	SSL* out_s = s;
++
++	sgx_spin_lock(&ssl_hardening_map_lock);
++	SSL* in_s = (SSL*) hashmapGet(ssl_hardening_map, (unsigned long)out_s);
++	out_s->references = in_s->references-1;
++	if (out_s->references <= 0) {
++		hashmapRemove(ssl_hardening_map, (unsigned long)out_s);
++		hashmapRemove(ssl_hardening_map, (unsigned long)in_s);
++	}
++	sgx_spin_unlock(&ssl_hardening_map_lock);
++
++	// no need for an ocall_free(out_s) as the untrusted code in enclaveshim_ecalls.c does it for us
++	s = in_s;
++#endif
++	SSL_free(s);
++}
+ void
+ SSL_free(SSL *s)
+ {
+ 	int	i;
+ 
+-	if (s == NULL)
++	if (s == NULL) {
+ 		return;
++	}
+ 
+ 	i = CRYPTO_add(&s->references, -1, CRYPTO_LOCK_SSL);
+-	if (i > 0)
++	if (i > 0) {
+ 		return;
++	}
+ 
+ 	if (s->param)
+ 		X509_VERIFY_PARAM_free(s->param);
+@@ -562,6 +745,23 @@
+ }
+ 
+ void
++ecall_SSL_set_bio(SSL *s, BIO *rbio, BIO *wbio)
++{
++#ifdef COMPILE_WITH_INTEL_SGX
++	SSL* out_s = s;
++
++	sgx_spin_lock(&ssl_hardening_map_lock);
++	SSL* in_s = (SSL*) hashmapGet(ssl_hardening_map, (unsigned long)out_s);
++	sgx_spin_unlock(&ssl_hardening_map_lock);
++
++	SSL_copy_fields_to_in_struct(in_s, out_s);
++	SSL_set_bio(in_s, rbio, wbio);
++	SSL_copy_fields_to_out_struct(in_s, out_s);
++#else
++	SSL_set_bio(s, rbio, wbio);
++#endif
++}
++void
+ SSL_set_bio(SSL *s, BIO *rbio, BIO *wbio)
+ {
+ 	/* If the output buffering BIO is still in place, remove it */
+@@ -581,12 +781,48 @@
+ }
+ 
+ BIO *
++ecall_SSL_get_rbio(const SSL *s)
++{
++#ifdef COMPILE_WITH_INTEL_SGX
++	SSL* out_s = (SSL*)s;
++
++	sgx_spin_lock(&ssl_hardening_map_lock);
++	SSL* in_s = (SSL*) hashmapGet(ssl_hardening_map, (unsigned long)out_s);
++	sgx_spin_unlock(&ssl_hardening_map_lock);
++
++	SSL_copy_fields_to_in_struct(in_s, out_s);
++	BIO* ret = SSL_get_rbio((const SSL*)in_s);
++	SSL_copy_fields_to_out_struct(in_s, out_s);
++	return ret;
++#else
++	return SSL_get_rbio(s);
++#endif
++}
++BIO *
+ SSL_get_rbio(const SSL *s)
+ {
+ 	return (s->rbio);
+ }
+ 
+ BIO *
++ecall_SSL_get_wbio(const SSL *s)
++{
++#ifdef COMPILE_WITH_INTEL_SGX
++	SSL* out_s = (SSL*)s;
++
++	sgx_spin_lock(&ssl_hardening_map_lock);
++	SSL* in_s = (SSL*) hashmapGet(ssl_hardening_map, (unsigned long)out_s);
++	sgx_spin_unlock(&ssl_hardening_map_lock);
++
++	SSL_copy_fields_to_in_struct(in_s, out_s);
++	BIO* ret = SSL_get_wbio((const SSL*)in_s);
++	SSL_copy_fields_to_out_struct(in_s, out_s);
++	return ret;
++#else
++	return SSL_get_wbio(s);
++#endif
++}
++BIO *
+ SSL_get_wbio(const SSL *s)
+ {
+ 	return (s->wbio);
+@@ -625,6 +861,24 @@
+ }
+ 
+ int
++ecall_SSL_set_fd(SSL *s, int fd) {
++#ifdef COMPILE_WITH_INTEL_SGX
++	SSL* out_s = s;
++
++	sgx_spin_lock(&ssl_hardening_map_lock);
++	SSL* in_s = (SSL*) hashmapGet(ssl_hardening_map, (unsigned long)out_s);
++	sgx_spin_unlock(&ssl_hardening_map_lock);
++
++	SSL_copy_fields_to_in_struct(in_s, out_s);
++	int ret = SSL_set_fd(in_s, fd);
++	SSL_copy_fields_to_out_struct(in_s, out_s);
++	return ret;
++#else
++	return SSL_set_fd(s, fd);
++#endif
++}
++
++int
+ SSL_set_fd(SSL *s, int fd)
+ {
+ 	int	 ret = 0;
+@@ -722,6 +976,24 @@
+ 
+ 
+ int
++ecall_SSL_get_verify_mode(const SSL *s)
++{
++#ifdef COMPILE_WITH_INTEL_SGX
++	SSL* out_s = (SSL*)s;
++
++	sgx_spin_lock(&ssl_hardening_map_lock);
++	SSL* in_s = (SSL*) hashmapGet(ssl_hardening_map, (unsigned long)out_s);
++	sgx_spin_unlock(&ssl_hardening_map_lock);
++
++	SSL_copy_fields_to_in_struct(in_s, out_s);
++	int ret = SSL_get_verify_mode((const SSL*)in_s);
++	SSL_copy_fields_to_out_struct(in_s, out_s);
++	return ret;
++#else
++	return SSL_get_verify_mode(s);
++#endif
++}
++int
+ SSL_get_verify_mode(const SSL *s)
+ {
+ 	return (s->verify_mode);
+@@ -740,6 +1012,11 @@
+ }
+ 
+ int
++ecall_SSL_CTX_get_verify_mode(const SSL_CTX *ctx)
++{
++	return SSL_CTX_get_verify_mode(ctx);
++}
++int
+ SSL_CTX_get_verify_mode(const SSL_CTX *ctx)
+ {
+ 	return (ctx->verify_mode);
+@@ -751,11 +1028,51 @@
+ 	return (X509_VERIFY_PARAM_get_depth(ctx->param));
+ }
+ 
++void* ecall_SSL_CTX_get_verify_callback(const SSL_CTX *ctx)
++{
++	return (void*)SSL_CTX_get_verify_callback(ctx);
++}
+ int (*SSL_CTX_get_verify_callback(const SSL_CTX *ctx))(int, X509_STORE_CTX *)
+ {
+ 	return (ctx->default_verify_callback);
+ }
+ 
++#ifdef COMPILE_WITH_INTEL_SGX
++int (*ssl_set_verify_cb_address)(int, X509_STORE_CTX*) = NULL;
++int ssl_set_verify_fake_cb(int ok, X509_STORE_CTX *ctx) {
++	my_fprintf(0, "%s:%s:%i need to implement callback\n", __FILE__, __func__, __LINE__);
++	if (ssl_set_verify_cb_address) {
++		//TODO ocall(ok, ctx, address)
++	}
++	return 0;
++}
++#endif
++
++void
++ecall_SSL_set_verify(SSL *s, int mode, void* cb)
++{
++	int (*callback)(int, X509_STORE_CTX*);
++#ifdef COMPILE_WITH_INTEL_SGX
++	ssl_set_verify_cb_address = (int (*)(int, X509_STORE_CTX*))cb;
++	callback = ssl_set_verify_fake_cb;
++#else
++	callback = (int (*)(int, X509_STORE_CTX*))cb;
++#endif
++
++#ifdef COMPILE_WITH_INTEL_SGX
++	SSL* out_s = s;
++
++	sgx_spin_lock(&ssl_hardening_map_lock);
++	SSL* in_s = (SSL*) hashmapGet(ssl_hardening_map, (unsigned long)out_s);
++	sgx_spin_unlock(&ssl_hardening_map_lock);
++
++	SSL_copy_fields_to_in_struct(in_s, out_s);
++	SSL_set_verify(in_s, mode, callback);
++	SSL_copy_fields_to_out_struct(in_s, out_s);
++#else
++	SSL_set_verify(s, mode, callback);
++#endif
++}
+ void
+ SSL_set_verify(SSL *s, int mode,
+     int (*callback)(int ok, X509_STORE_CTX *ctx))
+@@ -766,6 +1083,10 @@
+ }
+ 
+ void
++ecall_SSL_set_verify_depth(SSL *s, int depth) {
++	return SSL_set_verify_depth(s, depth);
++}
++void
+ SSL_set_verify_depth(SSL *s, int depth)
+ {
+ 	X509_VERIFY_PARAM_set_depth(s->param, depth);
+@@ -784,6 +1105,25 @@
+ }
+ 
+ int
++ecall_SSL_pending(const SSL *s)
++{
++	int ret = 0;
++#ifdef COMPILE_WITH_INTEL_SGX
++	SSL* out_s = (SSL*)s;
++
++	sgx_spin_lock(&ssl_hardening_map_lock);
++	SSL* in_s = (SSL*) hashmapGet(ssl_hardening_map, (unsigned long)out_s);
++	sgx_spin_unlock(&ssl_hardening_map_lock);
++
++	SSL_copy_fields_to_in_struct(in_s, out_s);
++	ret = SSL_pending(in_s);
++	SSL_copy_fields_to_out_struct(in_s, out_s);
++#else
++	ret = SSL_pending(s);
++#endif
++	return ret;
++}
++int
+ SSL_pending(const SSL *s)
+ {
+ 	/*
+@@ -798,6 +1138,24 @@
+ }
+ 
+ X509 *
++ecall_SSL_get_peer_certificate(const SSL *s)
++{
++#ifdef COMPILE_WITH_INTEL_SGX
++	SSL* out_s = (SSL*)s;
++
++	sgx_spin_lock(&ssl_hardening_map_lock);
++	SSL* in_s = (SSL*) hashmapGet(ssl_hardening_map, (unsigned long)out_s);
++	sgx_spin_unlock(&ssl_hardening_map_lock);
++
++	SSL_copy_fields_to_in_struct(in_s, out_s);
++	X509* ret = SSL_get_peer_certificate((const SSL*)in_s);
++	SSL_copy_fields_to_out_struct(in_s, out_s);
++	return ret;
++#else
++	return SSL_get_peer_certificate(s);
++#endif
++}
++X509 *
+ SSL_get_peer_certificate(const SSL *s)
+ {
+ 	X509	*r;
+@@ -869,6 +1227,10 @@
+ 
+ /* Fix this so it checks all the valid key/cert options */
+ int
++ecall_SSL_CTX_check_private_key(const SSL_CTX *ctx) {
++	return SSL_CTX_check_private_key(ctx);
++}
++int
+ SSL_CTX_check_private_key(const SSL_CTX *ctx)
+ {
+ 	if ((ctx == NULL) || (ctx->cert == NULL) ||
+@@ -914,6 +1276,121 @@
+ 	    ssl->cert->key->privatekey));
+ }
+ 
++#ifdef COMPILE_WITH_INTEL_SGX
++
++void lthread_main_handler(void* arg) {
++	//Do not return from this function, otherwise the LT_ST_EXITED bit in lt->state is set
++	//and it creates problems
++
++	while (1) {
++		char* msg = lthread_get_task_args()->msg;
++		enum transition_type type = lthread_get_task_args()->type;
++		//int slot = lthread_get_task_args()->slot;
++		size_t size = 0;
++
++		//my_printf("task %p msg %p type %d slot %d\n", lthread_current(), msg, type, slot);
++
++		if (type == ecall_ssl_accept) {
++			struct cell_ssl_accept* s = (struct cell_ssl_accept*)msg;
++			size = sizeof(*s);
++			//my_printf("task %p slot %d ecall_SSL_accept\n", lthread_current(), slot);
++			s->ret = ecall_SSL_accept(s->ssl);
++		} else if (type == ecall_ssl_read) {
++			struct cell_ssl_read* s = (struct cell_ssl_read*)msg;
++			size = sizeof(*s);
++			//my_printf("task %p slot %d ecall_SSL_read\n", lthread_current(), slot);
++			s->ret = ecall_SSL_read(s->ssl, s->buf, s->num);
++		} else if (type == ecall_ssl_new) {
++			struct cell_ssl_new* s = (struct cell_ssl_new*)msg;
++			size = sizeof(*s);
++			//my_printf("task %p slot %d ecall_SSL_new\n", lthread_current(), slot);
++			s->ret = ecall_SSL_new(s->ctx, s->out_s);
++		} else if (type == ecall_ssl_free) {
++			struct cell_ssl_free* s = (struct cell_ssl_free*)msg;
++			size = sizeof(*s);
++			//my_printf("task %p slot %d ecall_SSL_free\n", lthread_current(), slot);
++			ecall_SSL_free(s->out_s);
++		} else if (type == ecall_ssl_write) {
++			struct cell_ssl_write* s = (struct cell_ssl_write*)msg;
++			size = sizeof(*s);
++			//my_printf("task %p slot %d ecall_SSL_write\n", lthread_current(), slot);
++			s->ret = ecall_SSL_write(s->ssl, s->buf, s->num);
++		} else if (type == ecall_ssl_ctrl) {
++			struct cell_ssl_ctrl* s = (struct cell_ssl_ctrl*)msg;
++			size = sizeof(*s);
++			//my_printf("task %p slot %d ecall_SSL_ctrl\n", lthread_current(), slot);
++			s->ret = ecall_SSL_ctrl(s->ssl, s->cmd, s->larg, s->parg);
++		} else if (type == ecall_ssl_set_bio) {
++			struct cell_ssl_set_bio* s = (struct cell_ssl_set_bio*)msg;
++			size = sizeof(*s);
++			//my_printf("task %p slot %d ecall_SSL_set_bio\n", lthread_current(), slot);
++			ecall_SSL_set_bio(s->ssl, s->rbio, s->wbio);
++		} else if (type == ecall_ssl_shutdown) {
++			struct cell_ssl_shutdown* s = (struct cell_ssl_shutdown*)msg;
++			size = sizeof(*s);
++			//my_printf("task %p slot %d ecall_SSL_shutdown\n", lthread_current(), slot);
++			s->ret = ecall_SSL_shutdown(s->ssl);
++		} else if (type == ecall_bio_new) {
++			struct cell_bio_new* s = (struct cell_bio_new*)msg;
++			size = sizeof(*s);
++			//my_printf("task %p slot %d ecall_BIO_new\n", lthread_current(), slot);
++			s->ret = ecall_BIO_new(s->type, &(s->method_in_enclave));
++		} else if (type == ecall_bio_ctrl) {
++			struct cell_bio_ctrl* s = (struct cell_bio_ctrl*)msg;
++			size = sizeof(*s);
++			//my_printf("task %p slot %d ecall_BIO_ctrl\n", lthread_current(), slot);
++			s->ret = ecall_BIO_ctrl(s->bio, s->cmd, s->larg, s->parg);
++		} else {
++			//undef: no message
++			//my_printf("task %p slot %d no message\n", lthread_current(), slot);
++		}
++
++		lthread_get_task_args()->size = size;
++		lthread_get_task_args()->do_ocall = 0;
++		lthread_yield();
++	}
++}
++
++void ecall_start_sgx_thread(void* eq, void* oq, int tid, int appthreads, int sgxthreads, int lthread_tasks, int ncycles, uint64_t* rdtsc_value) {
++	int i;
++
++	ocall_init_async_ocalls(oq, tid, appthreads, sgxthreads, lthread_tasks, ncycles);
++	// 1 queue per thread, as tasks don't have the same scheduler
++	struct mpmc_queue* sched_ready_q;
++	struct mpmc_queue* sched_ocall_q;
++	__initschedqueue((size_t)appthreads, &sched_ready_q, &sched_ocall_q);
++
++	for (i=0; i<lthread_tasks; i++) {
++		my_printf("thread %d starting task %d\n", tid, i);
++		lthread_t *lt = NULL;
++		lthread_create(&lt, lthread_main_handler, NULL, sched_ready_q);
++	}
++
++	my_printf("run lthread in thread %d\n", tid);
++	lthread_run(eq, oq, tid, appthreads, sgxthreads, lthread_tasks, ncycles, sched_ready_q, sched_ocall_q, rdtsc_value);
++}
++#endif
++
++
++int
++ecall_SSL_accept(SSL *s)
++{
++#ifdef COMPILE_WITH_INTEL_SGX
++	SSL* out_s = s;
++
++	sgx_spin_lock(&ssl_hardening_map_lock);
++	SSL* in_s = (SSL*) hashmapGet(ssl_hardening_map, (unsigned long)out_s);
++	sgx_spin_unlock(&ssl_hardening_map_lock);
++
++	SSL_copy_fields_to_in_struct(in_s, out_s);
++	int ret = SSL_accept(in_s);
++	SSL_copy_fields_to_out_struct(in_s, out_s);
++
++	return ret;
++#else
++	return SSL_accept(s);
++#endif
++}
+ int
+ SSL_accept(SSL *s)
+ {
+@@ -924,6 +1401,24 @@
+ }
+ 
+ int
++ecall_SSL_connect(SSL *s) {
++	int ret;
++#ifdef COMPILE_WITH_INTEL_SGX
++	SSL* out_s = s;
++
++	sgx_spin_lock(&ssl_hardening_map_lock);
++	SSL* in_s = (SSL*) hashmapGet(ssl_hardening_map, (unsigned long)out_s);
++	sgx_spin_unlock(&ssl_hardening_map_lock);
++
++	SSL_copy_fields_to_in_struct(in_s, out_s);
++	ret = SSL_connect(in_s);
++	SSL_copy_fields_to_out_struct(in_s, out_s);
++#else
++	ret = SSL_connect(s);
++#endif
++	return ret;
++}
++int
+ SSL_connect(SSL *s)
+ {
+ 	if (s->handshake_func == NULL)
+@@ -939,6 +1434,23 @@
+ }
+ 
+ int
++ecall_SSL_read(SSL *s, void *buf, int num) {
++#ifdef COMPILE_WITH_INTEL_SGX
++	SSL* out_s = s;
++
++	sgx_spin_lock(&ssl_hardening_map_lock);
++	SSL* in_s = (SSL*) hashmapGet(ssl_hardening_map, (unsigned long)out_s);
++	sgx_spin_unlock(&ssl_hardening_map_lock);
++
++	SSL_copy_fields_to_in_struct(in_s, out_s);
++	int ret = SSL_read(in_s, buf, num);
++	SSL_copy_fields_to_out_struct(in_s, out_s);
++	return ret;
++#else
++	return SSL_read(s, buf, num);
++#endif
++}
++int
+ SSL_read(SSL *s, void *buf, int num)
+ {
+ 	if (s->handshake_func == NULL) {
+@@ -968,6 +1480,23 @@
+ }
+ 
+ int
++ecall_SSL_write(SSL *s, const void *buf, int num) {
++#ifdef COMPILE_WITH_INTEL_SGX
++	SSL* out_s = s;
++
++	sgx_spin_lock(&ssl_hardening_map_lock);
++	SSL* in_s = (SSL*) hashmapGet(ssl_hardening_map, (unsigned long)out_s);
++	sgx_spin_unlock(&ssl_hardening_map_lock);
++
++	SSL_copy_fields_to_in_struct(in_s, out_s);
++	int ret = SSL_write(in_s, buf, num);
++	SSL_copy_fields_to_out_struct(in_s, out_s);
++	return ret;
++#else
++	return SSL_write(s, buf, num);
++#endif
++}
++int
+ SSL_write(SSL *s, const void *buf, int num)
+ {
+ 	if (s->handshake_func == NULL) {
+@@ -984,6 +1513,23 @@
+ }
+ 
+ int
++ecall_SSL_shutdown(SSL *s) {
++#ifdef COMPILE_WITH_INTEL_SGX
++	SSL* out_s = s;
++
++	sgx_spin_lock(&ssl_hardening_map_lock);
++	SSL* in_s = (SSL*) hashmapGet(ssl_hardening_map, (unsigned long)out_s);
++	sgx_spin_unlock(&ssl_hardening_map_lock);
++
++	SSL_copy_fields_to_in_struct(in_s, out_s);
++	int ret = SSL_shutdown(in_s);
++	SSL_copy_fields_to_out_struct(in_s, out_s);
++	return ret;
++#else
++	return SSL_shutdown(s);
++#endif
++}
++int
+ SSL_shutdown(SSL *s)
+ {
+ 	/*
+@@ -1037,6 +1583,24 @@
+ }
+ 
+ long
++ecall_SSL_ctrl(SSL *s, int cmd, long larg, void *parg)
++{
++#ifdef COMPILE_WITH_INTEL_SGX
++	SSL* out_s = s;
++
++	sgx_spin_lock(&ssl_hardening_map_lock);
++	SSL* in_s = (SSL*) hashmapGet(ssl_hardening_map, (unsigned long)out_s);
++	sgx_spin_unlock(&ssl_hardening_map_lock);
++
++	SSL_copy_fields_to_in_struct(in_s, out_s);
++	long ret = SSL_ctrl(in_s, cmd, larg, parg);
++	SSL_copy_fields_to_out_struct(in_s, out_s);
++	return ret;
++#else
++	return SSL_ctrl(s, cmd, larg, parg);
++#endif
++}
++long
+ SSL_ctrl(SSL *s, int cmd, long larg, void *parg)
+ {
+ 	long	l;
+@@ -1112,6 +1676,10 @@
+ 	return (ctx->sessions);
+ }
+ 
++long ecall_SSL_CTX_ctrl(SSL_CTX *ctx, int cmd, long larg, void *parg) {
++	return SSL_CTX_ctrl(ctx, cmd, larg, parg);
++}
++
+ long
+ SSL_CTX_ctrl(SSL_CTX *ctx, int cmd, long larg, void *parg)
+ {
+@@ -1191,6 +1759,67 @@
+ 	}
+ }
+ 
++#ifdef COMPILE_WITH_INTEL_SGX
++
++void* ssl_ctx_info_cb_address = 0;
++
++void ssl_ctx_info_fake_cb(const SSL *ssl, int type, int val) {
++	/*
++	 * From the documentation ( man SSL_CTX_set_info_callback):
++	 *        When setting up a connection and during use, it is possible to obtain
++	 *        state information from the SSL/TLS engine. When set, an information
++	 *        callback function is called whenever the state changes, an alert
++	 *        appears, or an error occurs.
++	 */
++	// do not use this callback in Apache (not needed). However nginx requires it
++#ifdef COMPILE_OPTIMISATION_FOR_APACHE
++	return;
++#else
++	if (ssl_ctx_info_cb_address) {
++		SSL* out_s = (SSL*) hashmapGet(ssl_hardening_map, (unsigned long)ssl);
++
++		SSL_copy_fields_to_out_struct(ssl, out_s);
++		ocall_execute_ssl_ctx_info_callback(out_s, type, val, ssl_ctx_info_cb_address);
++		SSL_copy_fields_to_in_struct((SSL*)ssl, (const SSL*)out_s);
++	}
++#endif
++}
++#endif
++
++#ifdef COMPILE_WITH_INTEL_SGX
++static void* callback_address = 0;
++
++static int callback_trampoline(SSL* ssl, int* ad, void* arg) {
++	return SSL_TLSEXT_ERR_OK;
++	// don't call this callback. It is used for SNI stuff that we don't need
++	int ret = 0;
++	if (callback_address) {
++		SSL* out_s = (SSL*) hashmapGet(ssl_hardening_map, (unsigned long)ssl);
++
++		SSL_copy_fields_to_out_struct(ssl, out_s);
++		ocall_ssl_ctx_callback_ctrl(&ret, out_s, ad, arg, (void*)callback_address);
++		SSL_copy_fields_to_in_struct(ssl, out_s);
++	}
++	return ret;
++}
++
++long
++ecall_SSL_CTX_callback_ctrl(SSL_CTX *ctx, int cmd, void *cb) {
++	if (cmd != SSL_CTRL_SET_TLSEXT_SERVERNAME_CB) {
++		// we don't handle other cases
++		return 0;
++	} else {
++		callback_address = cb;
++		return SSL_CTX_callback_ctrl(ctx, cmd, (void (*)(void))callback_trampoline);
++	}
++}
++#else
++long
++ecall_SSL_CTX_callback_ctrl(SSL_CTX *ctx, int cmd, void *cb) {
++	return SSL_CTX_callback_ctrl(ctx, cmd, (void (*)(void))cb);
++}
++#endif
++
+ long
+ SSL_CTX_callback_ctrl(SSL_CTX *ctx, int cmd, void (*fp)(void))
+ {
+@@ -1236,6 +1865,23 @@
+  * preference.
+  */
+ STACK_OF(SSL_CIPHER) *
++ecall_SSL_get_ciphers(const SSL *s)
++{
++#ifdef COMPILE_WITH_INTEL_SGX
++	const SSL* out_s = s;
++
++	sgx_spin_lock(&ssl_hardening_map_lock);
++	SSL* in_s = (SSL*) hashmapGet(ssl_hardening_map, (unsigned long)out_s);
++	sgx_spin_unlock(&ssl_hardening_map_lock);
++
++	SSL_copy_fields_to_in_struct(in_s, out_s);
++	STACK_OF(SSL_CIPHER) *ret = SSL_get_ciphers(in_s);
++	return ret;
++#else
++	return SSL_get_ciphers(s);
++#endif
++}
++STACK_OF(SSL_CIPHER) *
+ SSL_get_ciphers(const SSL *s)
+ {
+ 	if (s != NULL) {
+@@ -1286,6 +1932,10 @@
+ 
+ /* Specify the ciphers to be used by default by the SSL_CTX. */
+ int
++ecall_SSL_CTX_set_cipher_list(SSL_CTX *ctx, const char *str) {
++	return SSL_CTX_set_cipher_list(ctx, str);
++}
++int
+ SSL_CTX_set_cipher_list(SSL_CTX *ctx, const char *str)
+ {
+ 	STACK_OF(SSL_CIPHER)	*sk;
+@@ -1312,6 +1962,24 @@
+ 
+ /* Specify the ciphers to be used by the SSL. */
+ int
++ecall_SSL_set_cipher_list(SSL *s, const char *str)
++{
++	int ret;
++#ifdef COMPILE_WITH_INTEL_SGX
++	SSL* out_s = s;
++	sgx_spin_lock(&ssl_hardening_map_lock);
++	SSL* in_s = (SSL*) hashmapGet(ssl_hardening_map, (unsigned long)out_s);
++	sgx_spin_unlock(&ssl_hardening_map_lock);
++
++	SSL_copy_fields_to_in_struct(in_s, out_s);
++	ret = SSL_set_cipher_list(in_s, str);
++	SSL_copy_fields_to_out_struct(in_s, out_s);
++#else
++	ret = SSL_set_cipher_list(s, str);
++#endif
++	return ret;
++}
++int
+ SSL_set_cipher_list(SSL *s, const char *str)
+ {
+ 	STACK_OF(SSL_CIPHER)	*sk;
+@@ -1488,6 +2156,28 @@
+  * Return a servername extension value if provided in Client Hello, or NULL.
+  * So far, only host_name types are defined (RFC 3546).
+  */
++void ecall_SSL_get_servername(const SSL *s, int type, char* servername, int* len) {
++#ifdef COMPILE_WITH_INTEL_SGX
++	SSL* out_s = (SSL*)s;
++
++	sgx_spin_lock(&ssl_hardening_map_lock);
++	SSL* in_s = (SSL*) hashmapGet(ssl_hardening_map, (unsigned long)out_s);
++	sgx_spin_unlock(&ssl_hardening_map_lock);
++
++	SSL_copy_fields_to_in_struct(in_s, out_s);
++	const char* sn = SSL_get_servername((const SSL*)in_s, type);
++	SSL_copy_fields_to_out_struct(in_s, out_s);
++#else
++	const char* sn = SSL_get_servername(s, type);
++#endif
++	if (sn == NULL) {
++		servername[0] = '\0';
++		*len = 0;
++	} else {
++		*len = strlen(sn);
++		memcpy(servername, sn, *len);
++	}
++}
+ const char *
+ SSL_get_servername(const SSL *s, const int type)
+ {
+@@ -1541,6 +2231,13 @@
+  * OPENSSL_NPN_NO_OVERLAP if the fallback case was reached.
+  */
+ int
++ecall_SSL_select_next_proto(unsigned char **out, unsigned char *outlen,
++    const unsigned char *server, unsigned int server_len,
++    const unsigned char *client, unsigned int client_len)
++{
++	return SSL_select_next_proto(out, outlen, server, server_len, client, client_len);
++}
++int
+ SSL_select_next_proto(unsigned char **out, unsigned char *outlen,
+     const unsigned char *server, unsigned int server_len,
+     const unsigned char *client, unsigned int client_len)
+@@ -1612,6 +2309,10 @@
+  * The callback should return SSL_TLSEXT_ERR_OK if it wishes to advertise.
+  * Otherwise, no such extension will be included in the ServerHello.
+  */
++void ecall_SSL_CTX_set_next_protos_advertised_cb(SSL_CTX *s, void *cb, void *arg) {
++	int (*callback) (SSL *ssl,  const unsigned char **out, unsigned int *outlen, void *arg) = (int (*) (SSL *ssl, const unsigned char **out, unsigned int *outlen, void *arg))cb;
++	SSL_CTX_set_next_protos_advertised_cb(s, callback, arg);
++}
+ void
+ SSL_CTX_set_next_protos_advertised_cb(SSL_CTX *ctx, int (*cb) (SSL *ssl,
+     const unsigned char **out, unsigned int *outlen, void *arg), void *arg)
+@@ -1631,6 +2332,36 @@
+  * The client must select a protocol. It is fatal to the connection if this
+  * callback returns a value other than SSL_TLSEXT_ERR_OK.
+  */
++#ifdef COMPILE_WITH_INTEL_SGX
++int (*ssl_ctx_set_next_proto_select_cb_address)(SSL *s, unsigned char **out, unsigned char *outlen, const unsigned char *in, unsigned int inlen, void *arg) = NULL;
++int ssl_ctx_set_next_proto_select_fake_cb(SSL *s, unsigned char **out, unsigned char *outlen, const unsigned char *in, unsigned int inlen, void *arg) {
++	int retval = -1;
++
++	if (ssl_ctx_set_next_proto_select_cb_address) {
++		SSL* in_s = s;
++
++		sgx_spin_lock(&ssl_hardening_map_lock);
++		SSL* out_s = (SSL*) hashmapGet(ssl_hardening_map, (unsigned long)in_s);
++		sgx_spin_unlock(&ssl_hardening_map_lock);
++
++		SSL_copy_fields_to_out_struct(in_s, out_s);
++		retval = ssl_ctx_set_next_proto_select_async_cb_wrapper(s, out, outlen, in, inlen, arg, ssl_ctx_set_next_proto_select_cb_address);
++		SSL_copy_fields_to_in_struct(in_s, out_s);
++	}
++	return retval;
++}
++#endif
++
++void ecall_SSL_CTX_set_next_proto_select_cb(SSL_CTX *s, void* cb, void *arg) {
++#ifdef COMPILE_WITH_INTEL_SGX
++	ssl_ctx_set_next_proto_select_cb_address = (int (*)(SSL *s, unsigned char **out, unsigned char *outlen, const unsigned char *in, unsigned int inlen, void *arg))cb;
++	int (*callback)(SSL *s, unsigned char **out, unsigned char *outlen, const unsigned char *in, unsigned int inlen, void *arg) = ssl_ctx_set_next_proto_select_fake_cb;
++#else
++	int (*callback)(SSL *s, unsigned char **out, unsigned char *outlen, const unsigned char *in, unsigned int inlen, void *arg) =
++			(int (*)(SSL *s, unsigned char **out, unsigned char *outlen, const unsigned char *in, unsigned int inlen, void *arg))cb;
++#endif
++	SSL_CTX_set_next_proto_select_cb(s, callback, arg);
++}
+ void
+ SSL_CTX_set_next_proto_select_cb(SSL_CTX *ctx, int (*cb) (SSL *s,
+     unsigned char **out, unsigned char *outlen, const unsigned char *in,
+@@ -1682,6 +2413,14 @@
+  * client's list of offered protocols.
+  */
+ void
++ecall_SSL_CTX_set_alpn_select_cb(SSL_CTX* ctx, void *cb, void *arg)
++{
++	int (*callback) (SSL *ssl, const unsigned char **out, unsigned char *outlen,
++	    const unsigned char *in, unsigned int inlen, void *arg) = (int (*) (SSL *ssl, const unsigned char **out, unsigned char *outlen,
++	    	    const unsigned char *in, unsigned int inlen, void *arg))cb;
++	SSL_CTX_set_alpn_select_cb(ctx, callback, arg);
++}
++void
+ SSL_CTX_set_alpn_select_cb(SSL_CTX* ctx,
+     int (*cb) (SSL *ssl, const unsigned char **out, unsigned char *outlen,
+     const unsigned char *in, unsigned int inlen, void *arg), void *arg)
+@@ -1762,6 +2501,10 @@
+ IMPLEMENT_LHASH_COMP_FN(ssl_session, SSL_SESSION)
+ 
+ SSL_CTX *
++ecall_SSL_CTX_new(const SSL_METHOD *meth) {
++	return SSL_CTX_new(meth);
++}
++SSL_CTX *
+ SSL_CTX_new(const SSL_METHOD *meth)
+ {
+ 	SSL_CTX	*ret = NULL;
+@@ -1909,6 +2652,10 @@
+ }
+ 
+ void
++ecall_SSL_CTX_free(SSL_CTX *a) {
++	SSL_CTX_free(a);
++}
++void
+ SSL_CTX_free(SSL_CTX *a)
+ {
+ 	int	i;
+@@ -1968,6 +2715,29 @@
+ 	free(a);
+ }
+ 
++#ifdef COMPILE_WITH_INTEL_SGX
++static void* default_passwd_callback_ocall = 0;
++
++int pem_password_cb_for_ocall(char *buf, int size, int rwflag, void *userdata) {
++	if (default_passwd_callback_ocall) {
++		int retval;
++		ocall_pem_password_cb(&retval, buf, size, rwflag, userdata, default_passwd_callback_ocall);
++		return retval;
++	} else {
++		return -1;
++	}
++}
++
++void ecall_SSL_CTX_set_default_passwd_cb(SSL_CTX *ctx, void *cb) {
++	default_passwd_callback_ocall = cb;
++	SSL_CTX_set_default_passwd_cb(ctx, pem_password_cb_for_ocall);
++}
++#else
++void ecall_SSL_CTX_set_default_passwd_cb(SSL_CTX *ctx, void *cb) {
++	SSL_CTX_set_default_passwd_cb(ctx, (pem_password_cb*)cb);
++}
++#endif
++
+ void
+ SSL_CTX_set_default_passwd_cb(SSL_CTX *ctx, pem_password_cb *cb)
+ {
+@@ -1980,6 +2750,26 @@
+ 	ctx->default_passwd_callback_userdata = u;
+ }
+ 
++#ifdef COMPILE_WITH_INTEL_SGX
++int (*ssl_ctx_set_cert_verify_cb_address)(X509_STORE_CTX *, void *) = NULL;
++int ssl_ctx_set_cert_verify_fake_cb(X509_STORE_CTX * ctx, void *arg) {
++	if (ssl_ctx_set_cert_verify_cb_address) {
++		my_fprintf(0, "need to call ssl_ctx_set_cert_verify_cb_address\n");
++	}
++	return 0;
++}
++#endif
++
++void ecall_SSL_CTX_set_cert_verify_callback(SSL_CTX *ctx, void* cb, void *arg) {
++#ifdef COMPILE_WITH_INTEL_SGX
++	ssl_ctx_set_cert_verify_cb_address = (int(*)(X509_STORE_CTX *, void *))cb;
++	int (*callback)(X509_STORE_CTX *, void *) = ssl_ctx_set_cert_verify_fake_cb;
++#else
++	int (*callback)(X509_STORE_CTX *, void *) = (int(*)(X509_STORE_CTX *, void *))cb;
++#endif
++	SSL_CTX_set_cert_verify_callback(ctx, callback, arg);
++}
++
+ void
+ SSL_CTX_set_cert_verify_callback(SSL_CTX *ctx, int (*cb)(X509_STORE_CTX *,
+     void *), void *arg)
+@@ -1988,6 +2778,28 @@
+ 	ctx->app_verify_arg = arg;
+ }
+ 
++#ifdef COMPILE_WITH_INTEL_SGX
++int (*ssl_ctx_set_verify_callback_address)(int, X509_STORE_CTX *) = NULL;
++int ssl_ctx_set_verify_fake_callback(int mode, X509_STORE_CTX *ctx) {
++	if (ssl_ctx_set_verify_callback_address) {
++		//TODO: make ocall
++		my_fprintf(0, "need to call callback ssl_ctx_set_verify_callback_address\n");
++	}
++	return 0;
++}
++#endif
++
++void ecall_SSL_CTX_set_verify(SSL_CTX *ctx, int mode, void* callback) {
++	int (*cb)(int, X509_STORE_CTX *);
++#ifdef COMPILE_WITH_INTEL_SGX
++	ssl_ctx_set_verify_callback_address = (int (*)(int, X509_STORE_CTX *))callback;
++	cb = ssl_ctx_set_verify_fake_callback;
++#else
++	cb = (int (*)(int, X509_STORE_CTX *))callback;
++#endif
++	SSL_CTX_set_verify(ctx, mode, cb);
++}
++
+ void
+ SSL_CTX_set_verify(SSL_CTX *ctx, int mode, int (*cb)(int, X509_STORE_CTX *))
+ {
+@@ -1996,6 +2808,10 @@
+ }
+ 
+ void
++ecall_SSL_CTX_set_verify_depth(SSL_CTX *ctx, int depth) {
++	SSL_CTX_set_verify_depth(ctx, depth);
++}
++void
+ SSL_CTX_set_verify_depth(SSL_CTX *ctx, int depth)
+ {
+ 	X509_VERIFY_PARAM_set_depth(ctx->param, depth);
+@@ -2292,6 +3108,33 @@
+ 	return (dhp);
+ }
+ 
++#ifdef COMPILE_WITH_INTEL_SGX
++	static SSL_SESSION* ssl_session_outside = NULL;
++#endif
++
++static int ocall_new_session_callback_wrapper(struct ssl_st *ssl) {
++	int retval;
++
++#ifdef COMPILE_WITH_INTEL_SGX
++	if (!ssl_session_outside) {
++		ocall_malloc((void**)&ssl_session_outside, sizeof(*ssl_session_outside));
++	}
++	//ssl_session_outside is a copy of the ssl session, so squid can access the session_id and session_id_length fields
++	memcpy(ssl_session_outside, ssl->session, sizeof(*ssl_session_outside));
++
++	sgx_status_t ret;
++	ret = ocall_new_session_callback(&retval, ssl, (void*)ssl_session_outside, (void*)ssl->session_ctx->new_session_cb);
++	if (ret != SGX_SUCCESS) {
++		my_printf("Error in callback %s: %d\n", __func__, ret);
++		retval = 0;
++	}
++#else
++	retval = ssl->session_ctx->new_session_cb(ssl, ssl->session);
++#endif
++
++	return retval;
++}
++
+ void
+ ssl_update_cache(SSL *s, int mode)
+ {
+@@ -2309,7 +3152,9 @@
+ 	    || SSL_CTX_add_session(s->session_ctx, s->session))
+ 	    && (s->session_ctx->new_session_cb != NULL)) {
+ 		CRYPTO_add(&s->session->references, 1, CRYPTO_LOCK_SSL_SESSION);
+-		if (!s->session_ctx->new_session_cb(s, s->session))
++		//my_printf("%s:%i (%s) gonna call new_session_cb @ %p\n", __FILE__, __LINE__, __func__, (void*)s->session_ctx->new_session_cb);
++		int retval = ocall_new_session_callback_wrapper(s);
++		if (!retval)
+ 			SSL_SESSION_free(s->session);
+ 	}
+ 
+@@ -2357,6 +3202,19 @@
+ }
+ 
+ int
++ecall_SSL_get_error(const SSL *s, int i) {
++#ifdef COMPILE_WITH_INTEL_SGX
++	const SSL* out_s = s;
++
++	sgx_spin_lock(&ssl_hardening_map_lock);
++	SSL* in_s = (SSL*) hashmapGet(ssl_hardening_map, (unsigned long)out_s);
++	sgx_spin_unlock(&ssl_hardening_map_lock);
++
++	s = in_s;
++#endif
++	return SSL_get_error(s, i);
++}
++int
+ SSL_get_error(const SSL *s, int i)
+ {
+ 	int		 reason;
+@@ -2435,6 +3293,19 @@
+ }
+ 
+ int
++ecall_SSL_do_handshake(SSL *s) {
++#ifdef COMPILE_WITH_INTEL_SGX
++	const SSL* out_s = s;
++
++	sgx_spin_lock(&ssl_hardening_map_lock);
++	SSL* in_s = (SSL*) hashmapGet(ssl_hardening_map, (unsigned long)out_s);
++	sgx_spin_unlock(&ssl_hardening_map_lock);
++
++	s = in_s;
++#endif
++	return SSL_do_handshake(s);
++}
++int
+ SSL_do_handshake(SSL *s)
+ {
+ 	int	ret = 1;
+@@ -2457,6 +3328,20 @@
+  * one of these calls will reset it
+  */
+ void
++ecall_SSL_set_accept_state(SSL *s)
++{
++#ifdef COMPILE_WITH_INTEL_SGX
++	const SSL* out_s = s;
++
++	sgx_spin_lock(&ssl_hardening_map_lock);
++	SSL* in_s = (SSL*) hashmapGet(ssl_hardening_map, (unsigned long)out_s);
++	sgx_spin_unlock(&ssl_hardening_map_lock);
++
++	s = in_s;
++#endif
++	SSL_set_accept_state(s);
++}
++void
+ SSL_set_accept_state(SSL *s)
+ {
+ 	s->server = 1;
+@@ -2470,6 +3355,19 @@
+ }
+ 
+ void
++ecall_SSL_set_connect_state(SSL *s) {
++#ifdef COMPILE_WITH_INTEL_SGX
++	const SSL* out_s = s;
++
++	sgx_spin_lock(&ssl_hardening_map_lock);
++	SSL* in_s = (SSL*) hashmapGet(ssl_hardening_map, (unsigned long)out_s);
++	sgx_spin_unlock(&ssl_hardening_map_lock);
++
++	s = in_s;
++#endif
++	SSL_set_connect_state(s);
++}
++void
+ SSL_set_connect_state(SSL *s)
+ {
+ 	s->server = 0;
+@@ -2523,6 +3421,11 @@
+ 	}
+ }
+ 
++int
++ecall_SSL_get_version_as_int(const SSL *s)
++{
++	return s->version;
++}
+ const char *
+ SSL_get_version(const SSL *s)
+ {
+@@ -2556,6 +3459,46 @@
+ 	return (0);
+ }
+ 
++#ifdef COMPILE_WITH_INTEL_SGX
++void (*SSL_set_info_cb_addr)(const SSL *ssl, int type, int val) = NULL;
++void SSL_set_info_fake_callback(const SSL* ssl, int type, int val) {
++	if (!SSL_set_info_cb_addr) {
++		my_printf("%s:%s;%i Need to implement SSL_set_info callback\n", __FILE__, __LINE__, __func__);
++		//TODO
++	} else {
++		my_printf("%s:%s;%i SSL_set_info_callback not called but fake callback called!\n", __FILE__, __LINE__, __func__);
++
++	}
++}
++#endif
++
++void ecall_SSL_set_info_callback(SSL *ssl, void* cb) {
++#ifdef COMPILE_WITH_INTEL_SGX
++	SSL* in_s = ssl;
++
++	sgx_spin_lock(&ssl_hardening_map_lock);
++	SSL* out_s = (SSL*) hashmapGet(ssl_hardening_map, (unsigned long)in_s);
++	sgx_spin_unlock(&ssl_hardening_map_lock);
++
++	SSL_copy_fields_to_out_struct(in_s, out_s);
++	SSL_set_info_cb_addr = (void (*)(const SSL*, int, int))cb;
++	SSL_set_info_callback(ssl, &SSL_set_info_fake_callback);
++	SSL_copy_fields_to_in_struct(in_s, out_s);
++#else
++	SSL_set_info_callback(ssl, cb);
++#endif
++}
++void
++SSL_set_info_callback(SSL *ssl, void (*cb)(const SSL *ssl, int type, int val))
++{
++	ssl->info_callback = cb;
++}
++
++void (*SSL_get_info_callback(const SSL *ssl))(const SSL *ssl, int type, int val)
++{
++	return (ssl->info_callback);
++}
++
+ SSL *
+ SSL_dup(SSL *s)
+ {
+@@ -2711,6 +3654,20 @@
+ 
+ /* Fix this function so that it takes an optional type parameter */
+ X509 *
++ecall_SSL_get_certificate(const SSL *s) {
++#ifdef COMPILE_WITH_INTEL_SGX
++	const SSL* out_s = s;
++
++	sgx_spin_lock(&ssl_hardening_map_lock);
++	const SSL* in_s = (const SSL*) hashmapGet(ssl_hardening_map, (unsigned long)out_s);
++	sgx_spin_unlock(&ssl_hardening_map_lock);
++
++	return SSL_get_certificate(in_s);
++#else
++	return SSL_get_certificate(s);
++#endif
++}
++X509 *
+ SSL_get_certificate(const SSL *s)
+ {
+ 	if (s->cert != NULL)
+@@ -2720,6 +3677,22 @@
+ }
+ 
+ /* Fix this function so that it takes an optional type parameter */
++void
++ecall_SSL_get_privatekey(EVP_PKEY* pkey, SSL *s) {
++#ifdef COMPILE_WITH_INTEL_SGX
++	const SSL* out_s = s;
++
++	sgx_spin_lock(&ssl_hardening_map_lock);
++	SSL* in_s = (SSL*) hashmapGet(ssl_hardening_map, (unsigned long)out_s);
++	sgx_spin_unlock(&ssl_hardening_map_lock);
++
++	EVP_PKEY* enclave_pkey = SSL_get_privatekey(in_s);
++	memcpy(pkey, enclave_pkey, sizeof(*pkey));
++#else
++	printf("Cannot call %s without SGX!!!\n", __func__);
++#endif
++}
++
+ EVP_PKEY *
+ SSL_get_privatekey(SSL *s)
+ {
+@@ -2729,6 +3702,11 @@
+ 		return (NULL);
+ }
+ 
++SSL_CIPHER *
++ecall_SSL_get_current_cipher(const SSL *s)
++{
++	return (SSL_CIPHER*)SSL_get_current_cipher(s);
++}
+ const SSL_CIPHER *
+ SSL_get_current_cipher(const SSL *s)
+ {
+@@ -2809,6 +3787,10 @@
+ }
+ 
+ void
++ecall_SSL_set_quiet_shutdown(SSL *s, int mode) {
++	return SSL_set_quiet_shutdown(s, mode);
++}
++void
+ SSL_set_quiet_shutdown(SSL *s, int mode)
+ {
+ 	s->quiet_shutdown = mode;
+@@ -2821,12 +3803,45 @@
+ }
+ 
+ void
++ecall_SSL_set_shutdown(SSL *s, int mode) {
++#ifdef COMPILE_WITH_INTEL_SGX
++	SSL* out_s = s;
++
++	sgx_spin_lock(&ssl_hardening_map_lock);
++	SSL* in_s = (SSL*) hashmapGet(ssl_hardening_map, (unsigned long)out_s);
++	sgx_spin_unlock(&ssl_hardening_map_lock);
++
++	SSL_copy_fields_to_in_struct(in_s, out_s);
++	SSL_set_shutdown(in_s, mode);
++	SSL_copy_fields_to_out_struct(in_s, out_s);
++#else
++	SSL_set_shutdown(s, mode);
++#endif
++}
++void
+ SSL_set_shutdown(SSL *s, int mode)
+ {
+ 	s->shutdown = mode;
+ }
+ 
+ int
++ecall_SSL_get_shutdown(const SSL *s) {
++#ifdef COMPILE_WITH_INTEL_SGX
++	SSL* out_s = (SSL*)s;
++
++	sgx_spin_lock(&ssl_hardening_map_lock);
++	SSL* in_s = (SSL*) hashmapGet(ssl_hardening_map, (unsigned long)out_s);
++	sgx_spin_unlock(&ssl_hardening_map_lock);
++
++	SSL_copy_fields_to_in_struct(in_s, out_s);
++	int ret = SSL_get_shutdown((const SSL*)in_s);
++	SSL_copy_fields_to_out_struct(in_s, out_s);
++	return ret;
++#else
++	return SSL_get_shutdown(s);
++#endif
++}
++int
+ SSL_get_shutdown(const SSL *s)
+ {
+ 	return (s->shutdown);
+@@ -2839,12 +3854,35 @@
+ }
+ 
+ SSL_CTX *
++ecall_SSL_get_SSL_CTX(const SSL *ssl)
++{
++#ifdef COMPILE_WITH_INTEL_SGX
++	SSL* out_s = (SSL*)ssl;
++
++	sgx_spin_lock(&ssl_hardening_map_lock);
++	SSL* in_s = (SSL*) hashmapGet(ssl_hardening_map, (unsigned long)out_s);
++	sgx_spin_unlock(&ssl_hardening_map_lock);
++
++	SSL_copy_fields_to_in_struct(in_s, out_s);
++	SSL_CTX* ret = SSL_get_SSL_CTX((const SSL*)in_s);
++	SSL_copy_fields_to_out_struct(in_s, out_s);
++	return ret;
++#else
++	return SSL_get_SSL_CTX(ssl);
++#endif
++}
++SSL_CTX *
+ SSL_get_SSL_CTX(const SSL *ssl)
+ {
+ 	return (ssl->ctx);
+ }
+ 
+ SSL_CTX *
++ecall_SSL_set_SSL_CTX(SSL *ssl, SSL_CTX* ctx)
++{
++	return SSL_set_SSL_CTX(ssl, ctx);
++}
++SSL_CTX *
+ SSL_set_SSL_CTX(SSL *ssl, SSL_CTX* ctx)
+ {
+ 	if (ssl->ctx == ctx)
+@@ -2861,6 +3899,10 @@
+ }
+ 
+ int
++ecall_SSL_CTX_set_default_verify_paths(SSL_CTX *ctx) {
++	return SSL_CTX_set_default_verify_paths(ctx);
++}
++int
+ SSL_CTX_set_default_verify_paths(SSL_CTX *ctx)
+ {
+ 	return (X509_STORE_set_default_paths(ctx->cert_store));
+@@ -2879,17 +3921,24 @@
+ 	return (X509_STORE_load_mem(ctx->cert_store, buf, len));
+ }
+ 
+-void
+-SSL_set_info_callback(SSL *ssl, void (*cb)(const SSL *ssl, int type, int val))
++int
++ecall_SSL_state(const SSL *ssl)
+ {
+-	ssl->info_callback = cb;
+-}
++#ifdef COMPILE_WITH_INTEL_SGX
++	SSL* out_s = (SSL*)ssl;
+ 
+-void (*SSL_get_info_callback(const SSL *ssl))(const SSL *ssl, int type, int val)
+-{
+-	return (ssl->info_callback);
++	sgx_spin_lock(&ssl_hardening_map_lock);
++	SSL* in_s = (SSL*) hashmapGet(ssl_hardening_map, (unsigned long)out_s);
++	sgx_spin_unlock(&ssl_hardening_map_lock);
++
++	SSL_copy_fields_to_in_struct(in_s, (const SSL*)out_s);
++	int ret = SSL_state(in_s);
++	SSL_copy_fields_to_out_struct((const SSL*)in_s, out_s);
++	return ret;
++#else
++	return SSL_state(ssl);
++#endif
+ }
+-
+ int
+ SSL_state(const SSL *ssl)
+ {
+@@ -2903,17 +3952,94 @@
+ }
+ 
+ void
++ecall_SSL_set_verify_result(SSL *ssl, long arg)
++{
++#ifdef COMPILE_WITH_INTEL_SGX
++	SSL* out_s = ssl;
++
++	sgx_spin_lock(&ssl_hardening_map_lock);
++	SSL* in_s = (SSL*) hashmapGet(ssl_hardening_map, (unsigned long)out_s);
++	sgx_spin_unlock(&ssl_hardening_map_lock);
++
++	SSL_copy_fields_to_in_struct(in_s, out_s);
++	SSL_set_verify_result(in_s, arg);
++	SSL_copy_fields_to_out_struct(in_s, out_s);
++#else
++	SSL_set_verify_result(ssl, arg);
++#endif
++}
++void
+ SSL_set_verify_result(SSL *ssl, long arg)
+ {
+ 	ssl->verify_result = arg;
+ }
+ 
+ long
++ecall_SSL_get_verify_result(const SSL *ssl)
++{
++#ifdef COMPILE_WITH_INTEL_SGX
++	SSL* out_s = (SSL*)ssl;
++
++	sgx_spin_lock(&ssl_hardening_map_lock);
++	SSL* in_s = (SSL*) hashmapGet(ssl_hardening_map, (unsigned long)out_s);
++	sgx_spin_unlock(&ssl_hardening_map_lock);
++
++	SSL_copy_fields_to_in_struct(in_s, out_s);
++	long ret = SSL_get_verify_result((const SSL*)in_s);
++	SSL_copy_fields_to_out_struct(in_s, out_s);
++	return ret;
++#else
++	return SSL_get_verify_result(ssl);
++#endif
++}
++long
+ SSL_get_verify_result(const SSL *ssl)
+ {
+ 	return (ssl->verify_result);
+ }
+ 
++#ifdef COMPILE_WITH_INTEL_SGX
++CRYPTO_EX_new *crypto_ex_new_cb_address = NULL;
++int fake_crypto_ex_new_cb(void *parent, void *ptr, CRYPTO_EX_DATA *ad, int idx, long argl, void *argp) {
++	if (crypto_ex_new_cb_address != NULL) {
++		//make the ocall with callback at crypto_ex_new_cb_address
++		//TODO
++		my_fprintf(0, "need to call callback crypto_ex_new_cb_address\n");
++	}
++	return -1;
++}
++
++CRYPTO_EX_dup *crypto_ex_dup_cb_address = NULL;
++int fake_crypto_ex_dup_cb(CRYPTO_EX_DATA *to, CRYPTO_EX_DATA *from, void *from_d, int idx, long argl, void *argp) {
++	if (crypto_ex_dup_cb_address != NULL) {
++		//make the ocall with callback at crypto_ex_dup_cb_address
++		//TODO
++		my_fprintf(0, "need to call callback crypto_ex_dup_cb_address\n");
++	}
++	return -1;
++}
++
++CRYPTO_EX_free *crypto_ex_free_cb_address = NULL;
++void fake_crypto_ex_free_cb(void *parent, void *ptr, CRYPTO_EX_DATA *ad, int idx, long argl, void *argp) {
++	if (crypto_ex_free_cb_address != NULL) {
++		crypto_ex_free_cb_wrapper(parent, ptr, ad, idx, argl, argp, crypto_ex_free_cb_address);
++	}
++}
++#endif
++
++int
++ecall_SSL_get_ex_new_index(long argl, void *argp, CRYPTO_EX_new *new_func,
++    CRYPTO_EX_dup *dup_func, CRYPTO_EX_free *free_func) {
++#ifdef COMPILE_WITH_INTEL_SGX
++	crypto_ex_new_cb_address = new_func;
++	new_func = fake_crypto_ex_new_cb;
++	crypto_ex_dup_cb_address = dup_func;
++	dup_func = fake_crypto_ex_dup_cb;
++	crypto_ex_free_cb_address = free_func;
++	free_func = fake_crypto_ex_free_cb;
++#endif
++	return SSL_get_ex_new_index(argl, argp, new_func, dup_func, free_func);
++}
+ int
+ SSL_get_ex_new_index(long argl, void *argp, CRYPTO_EX_new *new_func,
+     CRYPTO_EX_dup *dup_func, CRYPTO_EX_free *free_func)
+@@ -2935,6 +4061,11 @@
+ }
+ 
+ int
++ecall_SSL_CTX_get_ex_new_index(long argl, void *argp, CRYPTO_EX_new *new_func,
++    CRYPTO_EX_dup *dup_func, CRYPTO_EX_free *free_func) {
++	return SSL_CTX_get_ex_new_index(argl, argp, new_func, dup_func, free_func);
++}
++int
+ SSL_CTX_get_ex_new_index(long argl, void *argp, CRYPTO_EX_new *new_func,
+     CRYPTO_EX_dup *dup_func, CRYPTO_EX_free *free_func)
+ {
+@@ -2943,12 +4074,20 @@
+ }
+ 
+ int
++ecall_SSL_CTX_set_ex_data(SSL_CTX *s, int idx, void *arg) {
++	return SSL_CTX_set_ex_data(s, idx, arg);
++}
++int
+ SSL_CTX_set_ex_data(SSL_CTX *s, int idx, void *arg)
+ {
+ 	return (CRYPTO_set_ex_data(&s->ex_data, idx, arg));
+ }
+ 
+ void *
++ecall_SSL_CTX_get_ex_data(const SSL_CTX *s, int idx) {
++	return SSL_CTX_get_ex_data(s, idx);
++}
++void *
+ SSL_CTX_get_ex_data(const SSL_CTX *s, int idx)
+ {
+ 	return (CRYPTO_get_ex_data(&s->ex_data, idx));
+@@ -2961,6 +4100,10 @@
+ }
+ 
+ X509_STORE *
++ecall_SSL_CTX_get_cert_store(const SSL_CTX *ctx) {
++	return SSL_CTX_get_cert_store(ctx);
++}
++X509_STORE *
+ SSL_CTX_get_cert_store(const SSL_CTX *ctx)
+ {
+ 	return (ctx->cert_store);
+@@ -2980,6 +4123,41 @@
+ 	return (s->rwstate);
+ }
+ 
++#ifdef COMPILE_WITH_INTEL_SGX
++SSL_SESSION* ocall_get_session_cb_trampoline(SSL* ssl, unsigned char* data, int len, int* copy, void* cb) {
++	SSL_SESSION* ret;
++	SSL* in_s = ssl;
++
++	sgx_spin_lock(&ssl_hardening_map_lock);
++	SSL* out_s = (SSL*) hashmapGet(ssl_hardening_map, (unsigned long)in_s);
++	sgx_spin_unlock(&ssl_hardening_map_lock);
++
++	SSL_copy_fields_to_out_struct(in_s, out_s);
++	ocall_get_session_cb((void*)&ret, out_s, data, len, copy, cb);
++	SSL_copy_fields_to_in_struct(in_s, out_s);
++
++	return ret;
++}
++#endif
++
++#ifdef COMPILE_WITH_INTEL_SGX
++RSA *(*ssl_ctx_set_tmp_rsa_callback_address)(SSL *ssl, int is_export, int keylength) = NULL;
++RSA *ssl_ctx_set_tmp_rsa_fake_callback(SSL *ssl, int is_export, int keylength) {
++	if (ssl_ctx_set_tmp_rsa_callback_address) {
++		//TODO: make ocall
++		my_fprintf(0, "need to call callback ssl_ctx_set_tmp_rsa_callback_address\n");
++	}
++	return NULL;
++}
++#endif
++
++void ecall_SSL_CTX_set_tmp_rsa_callback(SSL_CTX *ctx, void* cb) {
++#ifdef COMPILE_WITH_INTEL_SGX
++	ssl_ctx_set_tmp_rsa_callback_address = (RSA *(*)(SSL *ssl, int is_export, int keylength))cb;
++	cb = ssl_ctx_set_tmp_rsa_fake_callback;
++#endif
++	SSL_CTX_set_tmp_rsa_callback(ctx, cb);
++}
+ void
+ SSL_CTX_set_tmp_rsa_callback(SSL_CTX *ctx, RSA *(*cb)(SSL *ssl, int is_export,
+     int keylength))
+@@ -2994,6 +4172,40 @@
+ 	SSL_callback_ctrl(ssl, SSL_CTRL_SET_TMP_RSA_CB,(void (*)(void))cb);
+ }
+ 
++#ifdef COMPILE_WITH_INTEL_SGX
++DH* (*SSL_CTX_set_tmp_dh_cb_address)(SSL *, int, int) = NULL;
++DH* SSL_CTX_set_tmp_dh_fake_cb(SSL *ssl, int is_export, int keylength) {
++	DH* retval = NULL;
++
++	if (SSL_CTX_set_tmp_dh_cb_address) {
++		SSL* in_s = ssl;
++
++		sgx_spin_lock(&ssl_hardening_map_lock);
++		SSL* out_s = (SSL*) hashmapGet(ssl_hardening_map, (unsigned long)in_s);
++		sgx_spin_unlock(&ssl_hardening_map_lock);
++
++		SSL_copy_fields_to_out_struct(in_s, out_s);
++		retval = ocall_SSL_CTX_set_tmp_dh_cb_wrapper(out_s, is_export, keylength, (void*)SSL_CTX_set_tmp_dh_cb_address);
++		SSL_copy_fields_to_in_struct(in_s, out_s);
++	}
++
++	return retval;
++}
++#endif
++
++void
++ecall_SSL_CTX_set_tmp_dh_callback(SSL_CTX *ctx, void* func)
++{
++	DH* (*cb)(SSL *, int, int);
++#ifdef COMPILE_WITH_INTEL_SGX
++	SSL_CTX_set_tmp_dh_cb_address = (DH* (*)(SSL *, int, int))func;
++	cb = SSL_CTX_set_tmp_dh_fake_cb;
++#else
++	cb = (DH* (*)(SSL *, int, int))func;
++#endif
++	SSL_CTX_set_tmp_dh_callback(ctx, cb);
++}
++
+ void
+ SSL_CTX_set_tmp_dh_callback(SSL_CTX *ctx, DH *(*dh)(SSL *ssl, int is_export,
+     int keylength))

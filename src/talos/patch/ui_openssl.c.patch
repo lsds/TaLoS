@@ -1,0 +1,42 @@
+--- ./crypto/ui/ui_openssl.c	2017-03-08 11:15:50.701464969 +0000
++++ ../talos/./crypto/ui/ui_openssl.c	2017-03-08 11:13:57.423752975 +0000
+@@ -161,6 +161,12 @@
+ 	.ui_close_session = close_console,
+ };
+ 
++#ifdef COMPILE_WITH_INTEL_SGX
++int my_fprintf(FILE *stream, const char *format, ...);
++#else
++#define my_fprintf(stream, format, ...) fprintf(stream, format, ##__VA_ARGS__)
++#endif
++
+ /* The method with all the built-in thingies */
+ UI_METHOD *
+ UI_OpenSSL(void)
+@@ -203,7 +209,7 @@
+ 		return read_string_inner(ui, uis,
+ 		    UI_get_input_flags(uis) & UI_INPUT_FLAG_ECHO, 1);
+ 	case UIT_VERIFY:
+-		fprintf(tty_out, "Verifying - %s",
++		my_fprintf(tty_out, "Verifying - %s",
+ 		    UI_get0_output_string(uis));
+ 		fflush(tty_out);
+ 		if ((ok = read_string_inner(ui, uis, UI_get_input_flags(uis) &
+@@ -211,7 +217,7 @@
+ 			return ok;
+ 		if (strcmp(UI_get0_result_string(uis),
+ 		    UI_get0_test_string(uis)) != 0) {
+-			fprintf(tty_out, "Verify failure\n");
++			my_fprintf(tty_out, "Verify failure\n");
+ 			fflush(tty_out);
+ 			return 0;
+ 		}
+@@ -279,7 +285,7 @@
+ 	if (intr_signal == SIGINT)
+ 		ok = -1;
+ 	if (!echo)
+-		fprintf(tty_out, "\n");
++		my_fprintf(tty_out, "\n");
+ 	if (ps >= 2 && !echo && !echo_console(ui))
+ 		ok = 0;
+ 

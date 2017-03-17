@@ -1,0 +1,13 @@
+--- ./crypto/x509v3/v3_genn.c	2017-03-08 11:15:50.733464324 +0000
++++ ../talos/./crypto/x509v3/v3_genn.c	2017-03-08 11:13:57.463752167 +0000
+@@ -267,7 +267,9 @@
+ {
+ 	return (GENERAL_NAME *)ASN1_item_new(&GENERAL_NAME_it);
+ }
+-
++void ecall_GENERAL_NAME_free(GENERAL_NAME *a) {
++	GENERAL_NAME_free(a);
++}
+ void
+ GENERAL_NAME_free(GENERAL_NAME *a)
+ {

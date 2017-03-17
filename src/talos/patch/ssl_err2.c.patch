@@ -1,0 +1,13 @@
+--- ./ssl/ssl_err2.c	2017-03-08 11:15:50.825462464 +0000
++++ ../talos/./ssl/ssl_err2.c	2017-03-08 11:13:57.587749661 +0000
+@@ -62,6 +62,10 @@
+ #include <openssl/ssl.h>
+ 
+ void
++ecall_SSL_load_error_strings(void) {
++	SSL_load_error_strings();
++}
++void
+ SSL_load_error_strings(void)
+ {
+ #ifndef OPENSSL_NO_ERR

@@ -1,0 +1,33 @@
+--- ./crypto/dso/dso_lib.c	2017-03-08 11:15:50.605466908 +0000
++++ ../talos/./crypto/dso/dso_lib.c	2017-03-08 11:13:57.315755154 +0000
+@@ -63,6 +63,12 @@
+ #include <openssl/dso.h>
+ #include <openssl/err.h>
+ 
++#ifdef COMPILE_WITH_INTEL_SGX
++extern char *my_strdup(const char *s);
++#else
++#define my_strdup(s) strdup(s)
++#endif
++
+ static DSO_METHOD *default_DSO_meth = NULL;
+ 
+ DSO *
+@@ -355,7 +361,7 @@
+ 		return (0);
+ 	}
+ 	/* We'll duplicate filename */
+-	copied = strdup(filename);
++	copied = my_strdup(filename);
+ 	if (copied == NULL) {
+ 		DSOerr(DSO_F_DSO_SET_FILENAME, ERR_R_MALLOC_FAILURE);
+ 		return (0);
+@@ -406,7 +412,7 @@
+ 			result = dso->meth->dso_name_converter(dso, filename);
+ 	}
+ 	if (result == NULL) {
+-		result = strdup(filename);
++		result = my_strdup(filename);
+ 		if (result == NULL) {
+ 			DSOerr(DSO_F_DSO_CONVERT_FILENAME,
+ 			    ERR_R_MALLOC_FAILURE);

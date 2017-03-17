@@ -1,0 +1,62 @@
+--- ./include/openssl/bn.h	2017-03-08 11:15:50.745464080 +0000
++++ ../talos/./include/openssl/bn.h	2017-03-08 11:13:57.483751762 +0000
+@@ -326,7 +326,6 @@
+ /* Note that BN_abs_is_word didn't work reliably for w == 0 until 0.9.8 */
+ #define BN_abs_is_word(a,w) ((((a)->top == 1) && ((a)->d[0] == (BN_ULONG)(w))) || \
+ 				(((w) == 0) && ((a)->top == 0)))
+-#define BN_is_zero(a)       ((a)->top == 0)
+ #define BN_is_one(a)        (BN_abs_is_word((a),1) && !(a)->neg)
+ #define BN_is_word(a,w)     (BN_abs_is_word((a),(w)) && (!(w) || !(a)->neg))
+ #define BN_is_odd(a)	    (((a)->top > 0) && ((a)->d[0] & 1))
+@@ -345,6 +344,8 @@
+ #define BN_zero(a)	(BN_set_word((a),0))
+ #endif
+ 
++int ecall_BN_is_zero(const BIGNUM* a);
++int BN_is_zero(const BIGNUM* a);
+ const BIGNUM *BN_value_one(void);
+ char *	BN_options(void);
+ BN_CTX *BN_CTX_new(void);
+@@ -359,8 +360,10 @@
+ int     BN_pseudo_rand(BIGNUM *rnd, int bits, int top, int bottom);
+ int	BN_rand_range(BIGNUM *rnd, const BIGNUM *range);
+ int	BN_pseudo_rand_range(BIGNUM *rnd, const BIGNUM *range);
++int	ecall_BN_num_bits(const BIGNUM *a);
+ int	BN_num_bits(const BIGNUM *a);
+ int	BN_num_bits_word(BN_ULONG);
++BIGNUM *ecall_BN_new(void);
+ BIGNUM *BN_new(void);
+ void	BN_init(BIGNUM *);
+ void	BN_clear_free(BIGNUM *a);
+@@ -408,11 +411,14 @@
+ int	BN_mul_word(BIGNUM *a, BN_ULONG w);
+ int	BN_add_word(BIGNUM *a, BN_ULONG w);
+ int	BN_sub_word(BIGNUM *a, BN_ULONG w);
++int	ecall_BN_set_word(BIGNUM *a, BN_ULONG w);
+ int	BN_set_word(BIGNUM *a, BN_ULONG w);
+ BN_ULONG BN_get_word(const BIGNUM *a);
+ 
+ int	BN_cmp(const BIGNUM *a, const BIGNUM *b);
++void	ecall_BN_free(BIGNUM *a);
+ void	BN_free(BIGNUM *a);
++int	ecall_BN_is_bit_set(const BIGNUM *a, int n);
+ int	BN_is_bit_set(const BIGNUM *a, int n);
+ int	BN_lshift(BIGNUM *r, const BIGNUM *a, int n);
+ int	BN_lshift1(BIGNUM *r, const BIGNUM *a);
+@@ -439,13 +445,16 @@
+ int	BN_rshift(BIGNUM *r, const BIGNUM *a, int n);
+ int	BN_rshift1(BIGNUM *r, const BIGNUM *a);
+ void	BN_clear(BIGNUM *a);
++BIGNUM *ecall_BN_dup(const BIGNUM *a);
+ BIGNUM *BN_dup(const BIGNUM *a);
+ int	BN_ucmp(const BIGNUM *a, const BIGNUM *b);
+ int	BN_set_bit(BIGNUM *a, int n);
++int	ecall_BN_clear_bit(BIGNUM *a, int n);
+ int	BN_clear_bit(BIGNUM *a, int n);
+ char *	BN_bn2hex(const BIGNUM *a);
+ char *	BN_bn2dec(const BIGNUM *a);
+ int 	BN_hex2bn(BIGNUM **a, const char *str);
++int 	ecall_BN_dec2bn(BIGNUM **a, const char *str);
+ int 	BN_dec2bn(BIGNUM **a, const char *str);
+ int	BN_asc2bn(BIGNUM **a, const char *str);
+ int	BN_gcd(BIGNUM *r, const BIGNUM *a, const BIGNUM *b, BN_CTX *ctx);

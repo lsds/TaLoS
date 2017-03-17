@@ -1,0 +1,66 @@
+--- ./ssl/ssl_ciph.c	2017-03-08 11:15:50.821462545 +0000
++++ ../talos/./ssl/ssl_ciph.c	2017-03-08 11:13:57.583749743 +0000
+@@ -488,6 +488,12 @@
+ 	},
+ };
+ 
++#ifdef COMPILE_WITH_INTEL_SGX
++extern int my_asprintf(char **strp, const char *fmt, ...);
++#else
++#define my_asprintf(strp, fmt, ...) asprintf(strp, fmt, __VA_ARGS__)
++#endif
++
+ void
+ ssl_load_ciphers(void)
+ {
+@@ -1568,6 +1574,10 @@
+ }
+ 
+ char *
++ecall_SSL_CIPHER_description(const SSL_CIPHER *cipher, char *buf, int len) {
++	return SSL_CIPHER_description(cipher, buf, len);
++}
++char *
+ SSL_CIPHER_description(const SSL_CIPHER *cipher, char *buf, int len)
+ {
+ 	unsigned long alg_mkey, alg_auth, alg_enc, alg_mac, alg_ssl, alg2;
+@@ -1718,7 +1728,7 @@
+ 		break;
+ 	}
+ 
+-	if (asprintf(&ret, "%-23s %s Kx=%-8s Au=%-4s Enc=%-9s Mac=%-4s\n",
++	if (my_asprintf(&ret, "%-23s %s Kx=%-8s Au=%-4s Enc=%-9s Mac=%-4s\n",
+ 	    cipher->name, ver, kx, au, enc, mac) == -1)
+ 		return "OPENSSL_malloc Error";
+ 
+@@ -1745,6 +1755,30 @@
+ }
+ 
+ /* return the actual cipher being used */
++#ifdef COMPILE_WITH_INTEL_SGX
++#include "sgx_error.h"
++
++extern sgx_status_t ocall_malloc(void** retval, size_t size);
++
++char* SSL_CIPHER_name_buffer = NULL;
++#endif
++
++const char *
++ecall_SSL_CIPHER_get_name(const SSL_CIPHER *c)
++{
++	const char* ret = SSL_CIPHER_get_name(c);
++#ifdef COMPILE_WITH_INTEL_SGX
++	if (!SSL_CIPHER_name_buffer) {
++		ocall_malloc((void*)&SSL_CIPHER_name_buffer, 8192);
++	}
++	size_t s = strlen(ret);
++	memcpy(SSL_CIPHER_name_buffer, ret, s);
++	SSL_CIPHER_name_buffer[s] = '\0';
++	return SSL_CIPHER_name_buffer;
++#else
++	return ret;
++#endif
++}
+ const char *
+ SSL_CIPHER_get_name(const SSL_CIPHER *c)
+ {

@@ -1,0 +1,45 @@
+--- ./crypto/asn1/x_x509a.c	2017-03-08 11:15:50.537468283 +0000
++++ ../talos/./crypto/asn1/x_x509a.c	2017-03-08 11:13:57.227756932 +0000
+@@ -57,11 +57,16 @@
+  */
+ 
+ #include <stdio.h>
++#include <string.h>
+ 
+ #include <openssl/asn1t.h>
+ #include <openssl/evp.h>
+ #include <openssl/x509.h>
+ 
++#ifdef COMPILE_WITH_INTEL_SGX
++extern void* ocall_realloc(void**, void*, size_t);
++#endif
++
+ /* X509_CERT_AUX routines. These are used to encode additional
+  * user modifiable data about a certificate. This data is
+  * appended to the X509 encoding when the *_X509_AUX routines
+@@ -189,6 +194,25 @@
+ 	return ASN1_STRING_set(aux->keyid, id, len);
+ }
+ 
++static unsigned char* ecall_alias_buffer = NULL;
++static int ecall_alias_buffer_len = 0;
++unsigned char *
++ecall_X509_alias_get0(X509 *x, int *len) {
++	unsigned char* p = X509_alias_get0(x, len);
++	if (!p) {
++		return NULL;
++	}
++	if (*len > ecall_alias_buffer_len) {
++#ifdef COMPILE_WITH_INTEL_SGX
++		ocall_realloc((void**)&ecall_alias_buffer, (void*)ecall_alias_buffer, *len);
++#else
++		ecall_alias_buffer = (unsigned char*) realloc(ecall_alias_buffer, *len);
++#endif
++		ecall_alias_buffer_len = *len;
++	}
++	memcpy(ecall_alias_buffer, p, *len);
++	return ecall_alias_buffer;
++}
+ unsigned char *
+ X509_alias_get0(X509 *x, int *len)
+ {

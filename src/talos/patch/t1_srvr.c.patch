@@ -1,0 +1,13 @@
+--- ./ssl/t1_srvr.c	2017-03-08 11:15:50.849461980 +0000
++++ ../talos/./ssl/t1_srvr.c	2017-03-08 11:13:57.615749095 +0000
+@@ -207,6 +207,10 @@
+ 	return (NULL);
+ }
+ 
++SSL_METHOD *
++ecall_SSLv23_server_method(void) {
++	return (SSL_METHOD*)SSLv23_server_method();
++}
+ const SSL_METHOD *
+ SSLv23_server_method(void)
+ {

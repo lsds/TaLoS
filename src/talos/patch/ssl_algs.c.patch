@@ -1,0 +1,13 @@
+--- ./ssl/ssl_algs.c	2017-03-08 11:15:50.813462708 +0000
++++ ../talos/./ssl/ssl_algs.c	2017-03-08 11:13:57.575749904 +0000
+@@ -64,6 +64,10 @@
+ #include "ssl_locl.h"
+ 
+ int
++ecall_SSL_library_init(void) {
++	return SSL_library_init();
++}
++int
+ SSL_library_init(void)
+ {
+ 

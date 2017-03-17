@@ -1,0 +1,397 @@
+--- ./include/openssl/ssl.h	2017-03-08 11:15:50.773463515 +0000
++++ ../talos/./include/openssl/ssl.h	2017-03-08 11:13:57.531750793 +0000
+@@ -919,14 +919,18 @@
+ #define SSL_CTX_sess_cache_full(ctx) \
+ 	SSL_CTX_ctrl(ctx,SSL_CTRL_SESS_CACHE_FULL,0,NULL)
+ 
++void ecall_SSL_CTX_sess_set_new_cb(SSL_CTX *ctx,
++    void* new_session_cb);
+ void SSL_CTX_sess_set_new_cb(SSL_CTX *ctx,
+     int (*new_session_cb)(struct ssl_st *ssl, SSL_SESSION *sess));
+ int (*SSL_CTX_sess_get_new_cb(SSL_CTX *ctx))(struct ssl_st *ssl,
+     SSL_SESSION *sess);
++void ecall_SSL_CTX_sess_set_remove_cb(SSL_CTX *ctx, void *cb);
+ void SSL_CTX_sess_set_remove_cb(SSL_CTX *ctx,
+     void (*remove_session_cb)(struct ssl_ctx_st *ctx, SSL_SESSION *sess));
+ void (*SSL_CTX_sess_get_remove_cb(SSL_CTX *ctx))(struct ssl_ctx_st *ctx,
+     SSL_SESSION *sess);
++void ecall_SSL_CTX_sess_set_get_cb(SSL_CTX *ctx, void* cb);
+ void SSL_CTX_sess_set_get_cb(SSL_CTX *ctx,
+     SSL_SESSION *(*get_session_cb)(struct ssl_st *ssl, unsigned char *data,
+     int len, int *copy));
+@@ -934,6 +938,7 @@
+     unsigned char *Data, int len, int *copy);
+ void SSL_CTX_set_info_callback(SSL_CTX *ctx, void (*cb)(const SSL *ssl,
+     int type, int val));
++void ecall_SSL_CTX_set_info_callback(SSL_CTX *ctx, void *cb);
+ void (*SSL_CTX_get_info_callback(SSL_CTX *ctx))(const SSL *ssl, int type,
+     int val);
+ void SSL_CTX_set_client_cert_cb(SSL_CTX *ctx,
+@@ -949,13 +954,18 @@
+ void SSL_CTX_set_cookie_verify_cb(SSL_CTX *ctx,
+     int (*app_verify_cookie_cb)(SSL *ssl, unsigned char *cookie,
+     unsigned int cookie_len));
++void ecall_SSL_CTX_set_next_protos_advertised_cb(SSL_CTX *s, void *cb, void *arg);
+ void
+ SSL_CTX_set_next_protos_advertised_cb(SSL_CTX *s, int (*cb)(SSL *ssl,
+     const unsigned char **out, unsigned int *outlen, void *arg), void *arg);
++void ecall_SSL_CTX_set_next_proto_select_cb(SSL_CTX *s, void* cb, void *arg);
+ void SSL_CTX_set_next_proto_select_cb(SSL_CTX *s, int (*cb)(SSL *ssl,
+     unsigned char **out, unsigned char *outlen, const unsigned char *in,
+     unsigned int inlen, void *arg), void *arg);
+ 
++int ecall_SSL_select_next_proto(unsigned char **out, unsigned char *outlen,
++    const unsigned char *in, unsigned int inlen, const unsigned char *client,
++    unsigned int client_len);
+ int SSL_select_next_proto(unsigned char **out, unsigned char *outlen,
+     const unsigned char *in, unsigned int inlen, const unsigned char *client,
+     unsigned int client_len);
+@@ -970,6 +980,7 @@
+     unsigned int protos_len);
+ int SSL_set_alpn_protos(SSL *ssl, const unsigned char *protos,
+     unsigned int protos_len);
++void ecall_SSL_CTX_set_alpn_select_cb(SSL_CTX *ctx, void *cb, void *arg);
+ void SSL_CTX_set_alpn_select_cb(SSL_CTX *ctx,
+     int (*cb)(SSL *ssl, const unsigned char **out, unsigned char *outlen,
+     const unsigned char *in, unsigned int inlen, void *arg), void *arg);
+@@ -1454,7 +1465,11 @@
+ #define SSL_CTRL_GET_EXTRA_CHAIN_CERTS		82
+ #define SSL_CTRL_CLEAR_EXTRA_CHAIN_CERTS	83
+ 
+-#define SSL_CTRL_SET_ECDH_AUTO				94
++/*
++ * PL: do not activate the automatic selection of the eliptic curve
++ * as it lead to poor performance
++ */
++//#define SSL_CTRL_SET_ECDH_AUTO				94
+ 
+ #define SSL_CTRL_SET_DH_AUTO			118
+ 
+@@ -1484,8 +1499,14 @@
+ 	SSL_CTX_ctrl(ctx,SSL_CTRL_SET_TMP_ECDH,0,(char *)ecdh)
+ #define SSL_CTX_set_dh_auto(ctx, onoff) \
+ 	SSL_CTX_ctrl(ctx,SSL_CTRL_SET_DH_AUTO,onoff,NULL)
++/*
++ * PL: do not activate the automatic selection of the eliptic curve
++ * as it lead to poor performance
++ */
++#ifdef SSL_CTRL_SET_ECDH_AUTO
+ #define SSL_CTX_set_ecdh_auto(ctx, onoff) \
+ 	SSL_CTX_ctrl(ctx,SSL_CTRL_SET_ECDH_AUTO,onoff,NULL)
++#endif
+ 
+ #define SSL_need_tmp_RSA(ssl) \
+ 	SSL_ctrl(ssl,SSL_CTRL_NEED_TMP_RSA,0,NULL)
+@@ -1516,11 +1537,17 @@
+ void BIO_ssl_shutdown(BIO *ssl_bio);
+ #endif
+ 
++int	ecall_SSL_CTX_set_cipher_list(SSL_CTX *, const char *str);
+ int	SSL_CTX_set_cipher_list(SSL_CTX *, const char *str);
++SSL_CTX *ecall_SSL_CTX_new(const SSL_METHOD *meth);
+ SSL_CTX *SSL_CTX_new(const SSL_METHOD *meth);
++void ecall_SSL_CTX_free(SSL_CTX *a);
+ void	SSL_CTX_free(SSL_CTX *);
++long ecall_SSL_CTX_set_timeout(SSL_CTX *ctx, long t);
+ long SSL_CTX_set_timeout(SSL_CTX *ctx, long t);
++long ecall_SSL_CTX_get_timeout(const SSL_CTX *ctx);
+ long SSL_CTX_get_timeout(const SSL_CTX *ctx);
++X509_STORE *ecall_SSL_CTX_get_cert_store(const SSL_CTX *);
+ X509_STORE *SSL_CTX_get_cert_store(const SSL_CTX *);
+ void SSL_CTX_set_cert_store(SSL_CTX *, X509_STORE *);
+ int SSL_want(const SSL *s);
+@@ -1528,6 +1555,7 @@
+ 
+ void	SSL_CTX_flush_sessions(SSL_CTX *ctx, long tm);
+ 
++SSL_CIPHER *ecall_SSL_get_current_cipher(const SSL *s);
+ const SSL_CIPHER *SSL_get_current_cipher(const SSL *s);
+ const SSL_CIPHER *SSL_CIPHER_get_by_id(unsigned int id);
+ const SSL_CIPHER *SSL_CIPHER_get_by_value(uint16_t value);
+@@ -1543,22 +1571,31 @@
+ const char  * SSL_get_cipher_list(const SSL *s, int n);
+ char *	SSL_get_shared_ciphers(const SSL *s, char *buf, int len);
+ int	SSL_get_read_ahead(const SSL * s);
++int	ecall_SSL_pending(const SSL *s);
+ int	SSL_pending(const SSL *s);
++int	ecall_SSL_set_fd(SSL *s, int fd);
+ int	SSL_set_fd(SSL *s, int fd);
+ int	SSL_set_rfd(SSL *s, int fd);
+ int	SSL_set_wfd(SSL *s, int fd);
+ #ifndef OPENSSL_NO_BIO
++void	ecall_SSL_set_bio(SSL *s, BIO *rbio, BIO *wbio);
+ void	SSL_set_bio(SSL *s, BIO *rbio, BIO *wbio);
++BIO *	ecall_SSL_get_rbio(const SSL *s);
+ BIO *	SSL_get_rbio(const SSL *s);
++BIO *	ecall_SSL_get_wbio(const SSL *s);
+ BIO *	SSL_get_wbio(const SSL *s);
+ #endif
++int	ecall_SSL_set_cipher_list(SSL *s, const char *str);
+ int	SSL_set_cipher_list(SSL *s, const char *str);
+ void	SSL_set_read_ahead(SSL *s, int yes);
++int	ecall_SSL_get_verify_mode(const SSL *s);
+ int	SSL_get_verify_mode(const SSL *s);
+ int	SSL_get_verify_depth(const SSL *s);
+ int	(*SSL_get_verify_callback(const SSL *s))(int, X509_STORE_CTX *);
++void	ecall_SSL_set_verify(SSL *s, int mode, void* cb);
+ void	SSL_set_verify(SSL *s, int mode,
+ 	    int (*callback)(int ok, X509_STORE_CTX *ctx));
++void	ecall_SSL_set_verify_depth(SSL *s, int depth);
+ void	SSL_set_verify_depth(SSL *s, int depth);
+ int	SSL_use_RSAPrivateKey(SSL *ssl, RSA *rsa);
+ int	SSL_use_RSAPrivateKey_ASN1(SSL *ssl, unsigned char *d, long len);
+@@ -1571,8 +1608,10 @@
+ int	SSL_use_PrivateKey_file(SSL *ssl, const char *file, int type);
+ int	SSL_use_certificate_file(SSL *ssl, const char *file, int type);
+ int	SSL_CTX_use_RSAPrivateKey_file(SSL_CTX *ctx, const char *file, int type);
++int	ecall_SSL_CTX_use_PrivateKey_file(SSL_CTX *ctx, const char *file, int type);
+ int	SSL_CTX_use_PrivateKey_file(SSL_CTX *ctx, const char *file, int type);
+ int	SSL_CTX_use_certificate_file(SSL_CTX *ctx, const char *file, int type);
++int	ecall_SSL_CTX_use_certificate_chain_file(SSL_CTX *ctx, const char *file); /* PEM type */
+ int	SSL_CTX_use_certificate_chain_file(SSL_CTX *ctx, const char *file); /* PEM type */
+ int	SSL_CTX_use_certificate_chain_mem(SSL_CTX *ctx, void *buf, int len);
+ STACK_OF(X509_NAME) *SSL_load_client_CA_file(const char *file);
+@@ -1581,6 +1620,7 @@
+ int	SSL_add_dir_cert_subjects_to_stack(STACK_OF(X509_NAME) *stackCAs,
+ 	    const char *dir);
+ 
++void	ecall_SSL_load_error_strings(void );
+ void	SSL_load_error_strings(void );
+ const char *SSL_state_string(const SSL *s);
+ const char *SSL_rstate_string(const SSL *s);
+@@ -1589,6 +1629,7 @@
+ long	SSL_SESSION_get_time(const SSL_SESSION *s);
+ long	SSL_SESSION_set_time(SSL_SESSION *s, long t);
+ long	SSL_SESSION_get_timeout(const SSL_SESSION *s);
++long	ecall_SSL_SESSION_set_timeout(SSL_SESSION *s, long t);
+ long	SSL_SESSION_set_timeout(SSL_SESSION *s, long t);
+ void	SSL_copy_session_id(SSL *to, const SSL *from);
+ X509 *SSL_SESSION_get0_peer(SSL_SESSION *s);
+@@ -1596,7 +1637,9 @@
+ SSL_SESSION_set1_id_context(SSL_SESSION *s, const unsigned char *sid_ctx,
+ unsigned int sid_ctx_len);
+ 
++
+ SSL_SESSION *SSL_SESSION_new(void);
++void ecall_SSL_SESSION_get_id(void* s, unsigned char* buf, unsigned int *len);
+ const unsigned char *SSL_SESSION_get_id(const SSL_SESSION *s,
+ 	    unsigned int *len);
+ unsigned int SSL_SESSION_get_compress_id(const SSL_SESSION *s);
+@@ -1605,6 +1648,7 @@
+ int	SSL_SESSION_print(BIO *fp, const SSL_SESSION *ses);
+ #endif
+ void	SSL_SESSION_free(SSL_SESSION *ses);
++int	ecall_i2d_SSL_SESSION(void* in, unsigned char **pp);
+ int	i2d_SSL_SESSION(SSL_SESSION *in, unsigned char **pp);
+ int	SSL_set_session(SSL *to, SSL_SESSION *session);
+ int	SSL_CTX_add_session(SSL_CTX *s, SSL_SESSION *c);
+@@ -1613,38 +1657,51 @@
+ int	SSL_set_generate_session_id(SSL *, GEN_SESSION_CB);
+ int	SSL_has_matching_session_id(const SSL *ssl, const unsigned char *id,
+ 	    unsigned int id_len);
++void* ecall_d2i_SSL_SESSION(void **a, const unsigned char **pp, long length);
+ SSL_SESSION *d2i_SSL_SESSION(SSL_SESSION **a, const unsigned char **pp,
+ 	    long length);
+ 
+ #ifdef HEADER_X509_H
++X509 *	ecall_SSL_get_peer_certificate(const SSL *s);
+ X509 *	SSL_get_peer_certificate(const SSL *s);
+ #endif
+ 
+ STACK_OF(X509) *SSL_get_peer_cert_chain(const SSL *s);
+ 
++int ecall_SSL_CTX_get_verify_mode(const SSL_CTX *ctx);
+ int SSL_CTX_get_verify_mode(const SSL_CTX *ctx);
+ int SSL_CTX_get_verify_depth(const SSL_CTX *ctx);
++void* ecall_SSL_CTX_get_verify_callback(const SSL_CTX *ctx);
+ int (*SSL_CTX_get_verify_callback(const SSL_CTX *ctx))(int, X509_STORE_CTX *);
++void ecall_SSL_CTX_set_verify(SSL_CTX *ctx, int mode, void* callback);
+ void SSL_CTX_set_verify(SSL_CTX *ctx, int mode,
+     int (*callback)(int, X509_STORE_CTX *));
++void ecall_SSL_CTX_set_verify_depth(SSL_CTX *ctx, int depth);
+ void SSL_CTX_set_verify_depth(SSL_CTX *ctx, int depth);
+ void SSL_CTX_set_cert_verify_callback(SSL_CTX *ctx, int (*cb)(X509_STORE_CTX *, void *), void *arg);
+ int SSL_CTX_use_RSAPrivateKey(SSL_CTX *ctx, RSA *rsa);
+ int SSL_CTX_use_RSAPrivateKey_ASN1(SSL_CTX *ctx, const unsigned char *d, long len);
++int ecall_SSL_CTX_use_PrivateKey(SSL_CTX *ctx, EVP_PKEY *pkey);
+ int SSL_CTX_use_PrivateKey(SSL_CTX *ctx, EVP_PKEY *pkey);
+ int SSL_CTX_use_PrivateKey_ASN1(int pk, SSL_CTX *ctx, const unsigned char *d, long len);
+ int SSL_CTX_use_certificate(SSL_CTX *ctx, X509 *x);
++int ecall_SSL_CTX_use_certificate(SSL_CTX *ctx, X509 *x);
+ int SSL_CTX_use_certificate_ASN1(SSL_CTX *ctx, int len, const unsigned char *d);
+ 
++void ecall_SSL_CTX_set_default_passwd_cb(SSL_CTX *ctx, void *cb);
+ void SSL_CTX_set_default_passwd_cb(SSL_CTX *ctx, pem_password_cb *cb);
+ void SSL_CTX_set_default_passwd_cb_userdata(SSL_CTX *ctx, void *u);
+ 
++int ecall_SSL_CTX_check_private_key(const SSL_CTX *ctx);
+ int SSL_CTX_check_private_key(const SSL_CTX *ctx);
+ int SSL_check_private_key(const SSL *ctx);
+ 
++int ecall_SSL_CTX_set_session_id_context(SSL_CTX *ctx, const unsigned char *sid_ctx, unsigned int sid_ctx_len);
+ int SSL_CTX_set_session_id_context(SSL_CTX *ctx, const unsigned char *sid_ctx, unsigned int sid_ctx_len);
+ 
++SSL *ecall_SSL_new(SSL_CTX *ctx, SSL* out_s);
+ SSL *SSL_new(SSL_CTX *ctx);
++int ecall_SSL_set_session_id_context(SSL *ssl, const unsigned char *sid_ctx, unsigned int sid_ctx_len);
+ int SSL_set_session_id_context(SSL *ssl, const unsigned char *sid_ctx, unsigned int sid_ctx_len);
+ 
+ int SSL_CTX_set_purpose(SSL_CTX *s, int purpose);
+@@ -1656,25 +1713,41 @@
+ int SSL_set1_param(SSL *ssl, X509_VERIFY_PARAM *vpm);
+ 
+ 
++#ifdef COMPILE_WITH_INTEL_SGX
++void ecall_start_sgx_thread(void* eq, void* oq, int tid, int appthreads, int sgxthreads, int lthread_tasks, int ncycles, uint64_t* rdtsc_value);
++#endif
++
++void	ecall_SSL_free(SSL *ssl);
+ void	SSL_free(SSL *ssl);
++int 	ecall_SSL_accept(SSL *ssl);
+ int 	SSL_accept(SSL *ssl);
++int 	ecall_SSL_connect(SSL *ssl);
+ int 	SSL_connect(SSL *ssl);
++int 	ecall_SSL_read(SSL *ssl, void *buf, int num);
+ int 	SSL_read(SSL *ssl, void *buf, int num);
+ int 	SSL_peek(SSL *ssl, void *buf, int num);
++int 	ecall_SSL_write(SSL *ssl, const void *buf, int num);
+ int 	SSL_write(SSL *ssl, const void *buf, int num);
++long	ecall_SSL_ctrl(SSL *ssl, int cmd, long larg, void *parg);
+ long	SSL_ctrl(SSL *ssl, int cmd, long larg, void *parg);
+ long	SSL_callback_ctrl(SSL *, int, void (*)(void));
+ long	SSL_CTX_ctrl(SSL_CTX *ctx, int cmd, long larg, void *parg);
+ long	SSL_CTX_callback_ctrl(SSL_CTX *, int, void (*)(void));
++long	ecall_SSL_CTX_callback_ctrl(SSL_CTX *, int, void *);
+ 
++int	ecall_SSL_get_error(const SSL *s, int ret_code);
+ int	SSL_get_error(const SSL *s, int ret_code);
++int ecall_SSL_get_version_as_int(const SSL *s);
+ const char *SSL_get_version(const SSL *s);
+ 
+ /* This sets the 'default' SSL version that SSL_new() will create */
+ int SSL_CTX_set_ssl_version(SSL_CTX *ctx, const SSL_METHOD *meth);
+ 
++const SSL_METHOD *ecall_SSLv23_method(void);		/* SSLv3 or TLSv1.* */
+ const SSL_METHOD *SSLv23_method(void);		/* SSLv3 or TLSv1.* */
++SSL_METHOD *ecall_SSLv23_server_method(void);	/* SSLv3 or TLSv1.* */
+ const SSL_METHOD *SSLv23_server_method(void);	/* SSLv3 or TLSv1.* */
++SSL_METHOD *ecall_SSLv23_client_method(void);	/* SSLv3 or TLSv1.* */
+ const SSL_METHOD *SSLv23_client_method(void);	/* SSLv3 or TLSv1.* */
+ 
+ const SSL_METHOD *TLSv1_method(void);		/* TLSv1.0 */
+@@ -1697,12 +1770,15 @@
+ const SSL_METHOD *DTLSv1_server_method(void);	/* DTLSv1.0 */
+ const SSL_METHOD *DTLSv1_client_method(void);	/* DTLSv1.0 */
+ 
++STACK_OF(SSL_CIPHER) *ecall_SSL_get_ciphers(const SSL *s);
+ STACK_OF(SSL_CIPHER) *SSL_get_ciphers(const SSL *s);
+ 
++int ecall_SSL_do_handshake(SSL *s);
+ int SSL_do_handshake(SSL *s);
+ int SSL_renegotiate(SSL *s);
+ int SSL_renegotiate_abbreviated(SSL *s);
+ int SSL_renegotiate_pending(SSL *s);
++int ecall_SSL_shutdown(SSL *s);
+ int SSL_shutdown(SSL *s);
+ 
+ const SSL_METHOD *SSL_get_ssl_method(SSL *s);
+@@ -1715,32 +1791,43 @@
+ void SSL_set_client_CA_list(SSL *s, STACK_OF(X509_NAME) *name_list);
+ void SSL_CTX_set_client_CA_list(SSL_CTX *ctx, STACK_OF(X509_NAME) *name_list);
+ STACK_OF(X509_NAME) *SSL_get_client_CA_list(const SSL *s);
+-STACK_OF(X509_NAME) *SSL_CTX_get_client_CA_list(const SSL_CTX *s);
++void *ecall_SSL_CTX_get_client_CA_list(const SSL_CTX *s);
++void *SSL_CTX_get_client_CA_list(const SSL_CTX *s);
+ int SSL_add_client_CA(SSL *ssl, X509 *x);
+ int SSL_CTX_add_client_CA(SSL_CTX *ctx, X509 *x);
+ 
++void ecall_SSL_set_connect_state(SSL *s);
+ void SSL_set_connect_state(SSL *s);
++void ecall_SSL_set_accept_state(SSL *s);
+ void SSL_set_accept_state(SSL *s);
+ 
+ long SSL_get_default_timeout(const SSL *s);
+ 
++int ecall_SSL_library_init(void );
+ int SSL_library_init(void );
+ 
++char *ecall_SSL_CIPHER_description(const SSL_CIPHER *, char *buf, int size);
+ char *SSL_CIPHER_description(const SSL_CIPHER *, char *buf, int size);
+ STACK_OF(X509_NAME) *SSL_dup_CA_list(STACK_OF(X509_NAME) *sk);
+ 
+ SSL *SSL_dup(SSL *ssl);
+ 
++X509 *ecall_SSL_get_certificate(const SSL *ssl);
+ X509 *SSL_get_certificate(const SSL *ssl);
++/* EVP_PKEY */ void ecall_SSL_get_privatekey(struct evp_pkey_st *pkey, SSL *ssl);
+ /* EVP_PKEY */ struct evp_pkey_st *SSL_get_privatekey(SSL *ssl);
+ 
+ void SSL_CTX_set_quiet_shutdown(SSL_CTX *ctx,int mode);
+ int SSL_CTX_get_quiet_shutdown(const SSL_CTX *ctx);
++void ecall_SSL_set_quiet_shutdown(SSL *ssl,int mode);
+ void SSL_set_quiet_shutdown(SSL *ssl,int mode);
+ int SSL_get_quiet_shutdown(const SSL *ssl);
++void ecall_SSL_set_shutdown(SSL *ssl,int mode);
+ void SSL_set_shutdown(SSL *ssl,int mode);
++int ecall_SSL_get_shutdown(const SSL *ssl);
+ int SSL_get_shutdown(const SSL *ssl);
+ int SSL_version(const SSL *ssl);
++int ecall_SSL_CTX_set_default_verify_paths(SSL_CTX *ctx);
+ int SSL_CTX_set_default_verify_paths(SSL_CTX *ctx);
+ int SSL_CTX_load_verify_locations(SSL_CTX *ctx, const char *CAfile,
+     const char *CApath);
+@@ -1748,19 +1835,27 @@
+ #define SSL_get0_session SSL_get_session /* just peek at pointer */
+ SSL_SESSION *SSL_get_session(const SSL *ssl);
+ SSL_SESSION *SSL_get1_session(SSL *ssl); /* obtain a reference count */
++SSL_CTX *ecall_SSL_get_SSL_CTX(const SSL *ssl);
+ SSL_CTX *SSL_get_SSL_CTX(const SSL *ssl);
++SSL_CTX *ecall_SSL_set_SSL_CTX(SSL *ssl, SSL_CTX* ctx);
+ SSL_CTX *SSL_set_SSL_CTX(SSL *ssl, SSL_CTX* ctx);
++void ecall_SSL_set_info_callback(SSL *ssl, void* cb);
+ void SSL_set_info_callback(SSL *ssl,
+     void (*cb)(const SSL *ssl, int type, int val));
+ void (*SSL_get_info_callback(const SSL *ssl))(const SSL *ssl, int type, int val);
++int ecall_SSL_state(const SSL *ssl);
+ int SSL_state(const SSL *ssl);
+ void SSL_set_state(SSL *ssl, int state);
+ 
++void ecall_SSL_set_verify_result(SSL *ssl, long v);
+ void SSL_set_verify_result(SSL *ssl, long v);
++long ecall_SSL_get_verify_result(const SSL *ssl);
+ long SSL_get_verify_result(const SSL *ssl);
+ 
+ int SSL_set_ex_data(SSL *ssl, int idx, void *data);
+ void *SSL_get_ex_data(const SSL *ssl, int idx);
++int ecall_SSL_get_ex_new_index(long argl, void *argp, CRYPTO_EX_new *new_func,
++    CRYPTO_EX_dup *dup_func, CRYPTO_EX_free *free_func);
+ int SSL_get_ex_new_index(long argl, void *argp, CRYPTO_EX_new *new_func,
+     CRYPTO_EX_dup *dup_func, CRYPTO_EX_free *free_func);
+ 
+@@ -1770,8 +1865,12 @@
+     CRYPTO_EX_new *new_func, CRYPTO_EX_dup *dup_func,
+     CRYPTO_EX_free *free_func);
+ 
++int ecall_SSL_CTX_set_ex_data(SSL_CTX *ssl, int idx, void *data);
+ int SSL_CTX_set_ex_data(SSL_CTX *ssl, int idx, void *data);
++void *ecall_SSL_CTX_get_ex_data(const SSL_CTX *ssl, int idx);
+ void *SSL_CTX_get_ex_data(const SSL_CTX *ssl, int idx);
++int ecall_SSL_CTX_get_ex_new_index(long argl, void *argp, CRYPTO_EX_new *new_func,
++    CRYPTO_EX_dup *dup_func, CRYPTO_EX_free *free_func);
+ int SSL_CTX_get_ex_new_index(long argl, void *argp, CRYPTO_EX_new *new_func,
+     CRYPTO_EX_dup *dup_func, CRYPTO_EX_free *free_func);
+ 
+@@ -1807,11 +1906,13 @@
+ 	SSL_ctrl(ssl,SSL_CTRL_SET_MAX_SEND_FRAGMENT,m,NULL)
+ 
+ /* NB: the keylength is only applicable when is_export is true */
++void ecall_SSL_CTX_set_tmp_rsa_callback(SSL_CTX *ctx, void* cb);
+ void SSL_CTX_set_tmp_rsa_callback(SSL_CTX *ctx,
+     RSA *(*cb)(SSL *ssl, int is_export, int keylength));
+ 
+ void SSL_set_tmp_rsa_callback(SSL *ssl,
+     RSA *(*cb)(SSL *ssl, int is_export, int keylength));
++void ecall_SSL_CTX_set_tmp_dh_callback(SSL_CTX *ctx, void* dh);
+ void SSL_CTX_set_tmp_dh_callback(SSL_CTX *ctx,
+     DH *(*dh)(SSL *ssl, int is_export, int keylength));
+ void SSL_set_tmp_dh_callback(SSL *ssl,

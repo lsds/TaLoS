@@ -1,0 +1,11 @@
+--- src/ssl/gadgets.cc	2017-03-08 10:38:49.646309039 +0000
++++ src/ssl/gadgets.cc	2017-03-08 10:39:12.477846228 +0000
+@@ -292,7 +292,7 @@
+         DecipherOnly
+     };
+ 
+-    int mimicAlgo = OBJ_obj2nid(mimicCert.get()->cert_info->key->algor->algorithm);
++    int mimicAlgo = OBJ_obj2nid(X509_get_algorithm(mimicCert.get()));
+ 
+     int added = 0;
+     int nid;

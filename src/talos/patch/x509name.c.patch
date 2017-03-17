@@ -1,0 +1,70 @@
+--- ./crypto/x509/x509name.c	2017-03-08 11:15:50.713464727 +0000
++++ ../talos/./crypto/x509/x509name.c	2017-03-08 11:13:57.435752731 +0000
+@@ -67,6 +67,10 @@
+ #include <openssl/x509.h>
+ 
+ int
++ecall_X509_NAME_get_text_by_NID(X509_NAME *name, int nid, char *buf, int len) {
++	return X509_NAME_get_text_by_NID(name, nid, buf, len);
++}
++int
+ X509_NAME_get_text_by_NID(X509_NAME *name, int nid, char *buf, int len)
+ {
+ 	ASN1_OBJECT *obj;
+@@ -107,6 +111,10 @@
+ }
+ 
+ int
++ecall_X509_NAME_get_index_by_NID(X509_NAME *name, int nid, int lastpos) {
++	return X509_NAME_get_index_by_NID(name, nid, lastpos);
++}
++int
+ X509_NAME_get_index_by_NID(X509_NAME *name, int nid, int lastpos)
+ {
+ 	ASN1_OBJECT *obj;
+@@ -140,6 +148,10 @@
+ }
+ 
+ X509_NAME_ENTRY *
++ecall_X509_NAME_get_entry(X509_NAME *name, int loc) {
++	return X509_NAME_get_entry(name, loc);
++}
++X509_NAME_ENTRY *
+ X509_NAME_get_entry(X509_NAME *name, int loc)
+ {
+ 	if (name == NULL || sk_X509_NAME_ENTRY_num(name->entries) <= loc ||
+@@ -150,6 +162,10 @@
+ }
+ 
+ X509_NAME_ENTRY *
++ecall_X509_NAME_delete_entry(X509_NAME *name, int loc) {
++	return X509_NAME_delete_entry(name, loc);
++}
++X509_NAME_ENTRY *
+ X509_NAME_delete_entry(X509_NAME *name, int loc)
+ {
+ 	X509_NAME_ENTRY *ret;
+@@ -203,6 +219,11 @@
+ }
+ 
+ int
++ecall_X509_NAME_add_entry_by_NID(X509_NAME *name, int nid, int type,
++    unsigned char *bytes, int len, int loc, int set) {
++	return X509_NAME_add_entry_by_NID(name, nid, type, bytes, len, loc, set);
++}
++int
+ X509_NAME_add_entry_by_NID(X509_NAME *name, int nid, int type,
+     unsigned char *bytes, int len, int loc, int set)
+ {
+@@ -402,6 +423,11 @@
+ }
+ 
+ ASN1_STRING *
++ecall_X509_NAME_ENTRY_get_data(X509_NAME_ENTRY *ne)
++{
++	return X509_NAME_ENTRY_get_data(ne);
++}
++ASN1_STRING *
+ X509_NAME_ENTRY_get_data(X509_NAME_ENTRY *ne)
+ {
+ 	if (ne == NULL)

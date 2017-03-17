@@ -1,0 +1,31 @@
+--- ./include/openssl/x509v3.h	2017-03-08 11:15:50.785463273 +0000
++++ ../talos/./include/openssl/x509v3.h	2017-03-08 11:13:57.543750551 +0000
+@@ -507,8 +507,12 @@
+ 
+ DECLARE_STACK_OF(X509_PURPOSE)
+ 
++void ecall_BASIC_CONSTRAINTS_free(BASIC_CONSTRAINTS *a);
+ DECLARE_ASN1_FUNCTIONS(BASIC_CONSTRAINTS)
+ 
++ASN1_INTEGER* ecall_X509_BC_get_pathlen(BASIC_CONSTRAINTS* bc);
++ASN1_INTEGER* X509_BC_get_pathlen(BASIC_CONSTRAINTS* bc);
++
+ DECLARE_ASN1_FUNCTIONS(SXNET)
+ DECLARE_ASN1_FUNCTIONS(SXNETID)
+ 
+@@ -525,6 +529,7 @@
+ DECLARE_ASN1_FUNCTIONS(PKEY_USAGE_PERIOD)
+ 
+ DECLARE_ASN1_FUNCTIONS(GENERAL_NAME)
++void ecall_GENERAL_NAME_free(GENERAL_NAME *a);
+ GENERAL_NAME *GENERAL_NAME_dup(GENERAL_NAME *a);
+ int GENERAL_NAME_cmp(GENERAL_NAME *a, GENERAL_NAME *b);
+ 
+@@ -681,6 +686,7 @@
+ int X509_check_purpose(X509 *x, int id, int ca);
+ int X509_supported_extension(X509_EXTENSION *ex);
+ int X509_PURPOSE_set(int *p, int purpose);
++int ecall_X509_check_issued(X509 *issuer, X509 *subject);
+ int X509_check_issued(X509 *issuer, X509 *subject);
+ int X509_check_akid(X509 *issuer, AUTHORITY_KEYID *akid);
+ int X509_PURPOSE_get_count(void);

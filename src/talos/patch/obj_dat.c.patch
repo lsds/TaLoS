@@ -1,0 +1,79 @@
+--- ./crypto/objects/obj_dat.c	2017-03-08 11:15:50.657465859 +0000
++++ ../talos/./crypto/objects/obj_dat.c	2017-03-08 11:13:57.387753700 +0000
+@@ -344,6 +344,31 @@
+ 	}
+ }
+ 
++#ifdef COMPILE_WITH_INTEL_SGX
++#include "sgx_error.h"
++
++extern sgx_status_t ocall_malloc(void** retval, size_t size);
++
++char* OBJ_nid2sn_buffer = NULL;
++#endif
++
++char *
++ecall_OBJ_nid2sn(int n) {
++	char* str = (char*)OBJ_nid2sn(n);
++#ifdef COMPILE_WITH_INTEL_SGX
++	if (!OBJ_nid2sn_buffer) {
++		ocall_malloc((void**)&OBJ_nid2sn_buffer, 8192);
++	}
++	size_t s = strlen(str);
++	//XXX PL: we might have a concurrency problem here...
++	memcpy(OBJ_nid2sn_buffer, str, s);
++	OBJ_nid2sn_buffer[s] = '\0';
++
++	str = OBJ_nid2sn_buffer;
++#endif
++	return str;
++}
++
+ const char *
+ OBJ_nid2sn(int n)
+ {
+@@ -416,6 +441,10 @@
+ IMPLEMENT_OBJ_BSEARCH_CMP_FN(const ASN1_OBJECT *, unsigned int, obj);
+ 
+ int
++ecall_OBJ_obj2nid(const ASN1_OBJECT *a) {
++	return OBJ_obj2nid(a);
++}
++int
+ OBJ_obj2nid(const ASN1_OBJECT *a)
+ {
+ 	const unsigned int *op;
+@@ -611,6 +640,10 @@
+ }
+ 
+ int
++ecall_OBJ_txt2nid(const char *s) {
++	return OBJ_txt2nid(s);
++}
++int
+ OBJ_txt2nid(const char *s)
+ {
+ 	ASN1_OBJECT *obj;
+@@ -645,6 +678,11 @@
+ }
+ 
+ int
++ecall_OBJ_sn2nid(const char *s) {
++	return OBJ_sn2nid(s);
++}
++
++int
+ OBJ_sn2nid(const char *s)
+ {
+ 	ASN1_OBJECT o;
+@@ -756,6 +794,10 @@
+ }
+ 
+ int
++ecall_OBJ_create(const char *oid, const char *sn, const char *ln) {
++	return OBJ_create(oid, sn, ln);
++}
++int
+ OBJ_create(const char *oid, const char *sn, const char *ln)
+ {
+ 	int ok = 0;

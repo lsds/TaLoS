@@ -1,0 +1,65 @@
+--- ./crypto/stack/stack.c	2017-03-08 11:15:50.689465212 +0000
++++ ../talos/./crypto/stack/stack.c	2017-03-08 11:13:57.411753215 +0000
+@@ -106,6 +106,10 @@
+ 	return (NULL);
+ }
+ 
++void*
++ecall_sk_new_null(void) {
++	return (void*)sk_new_null();
++}
+ _STACK *
+ sk_new_null(void)
+ {
+@@ -269,6 +273,27 @@
+ 	st->num = 0;
+ }
+ 
++#ifdef COMPILE_WITH_INTEL_SGX
++extern void ocall_sk_pop_free_cb_wrapper(void* data, void* cb);
++
++static void* sk_pop_free_cb_addr = NULL;
++void sk_pop_free_fake_cb(void* data) {
++	if (sk_pop_free_cb_addr) {
++		ocall_sk_pop_free_cb_wrapper(data, sk_pop_free_cb_addr);
++	}
++}
++#endif
++
++void
++ecall_sk_pop_free(void *st, void* cb)
++{
++#ifdef COMPILE_WITH_INTEL_SGX
++	sk_pop_free_cb_addr = cb;
++	sk_pop_free((_STACK*)st, (void (*)(void *))sk_pop_free_fake_cb);
++#else
++	sk_pop_free((_STACK*)st, (void (*)(void *))cb);
++#endif
++}
+ void
+ sk_pop_free(_STACK *st, void (*func)(void *))
+ {
+@@ -292,6 +317,11 @@
+ }
+ 
+ int
++ecall_sk_num(const void *st) {
++	return sk_num((const _STACK*)st);
++}
++
++int
+ sk_num(const _STACK *st)
+ {
+ 	if (st == NULL)
+@@ -300,6 +330,11 @@
+ }
+ 
+ void *
++ecall_sk_value(const void *st, int i)
++{
++	return sk_value(st, i);
++}
++void *
+ sk_value(const _STACK *st, int i)
+ {
+ 	if (!st || (i < 0) || (i >= st->num))

@@ -1,0 +1,24 @@
+--- ./crypto/bio/bss_acpt.c	2017-03-08 11:15:50.549468041 +0000
++++ ../talos/./crypto/bio/bss_acpt.c	2017-03-08 11:13:57.243756608 +0000
+@@ -69,6 +69,12 @@
+ 
+ #define SOCKET_PROTOCOL IPPROTO_TCP
+ 
++#ifdef COMPILE_WITH_INTEL_SGX
++extern char *my_strdup(const char *s);
++#else
++#define my_strdup(s) strdup(s)
++#endif
++
+ typedef struct bio_accept_st {
+ 	int state;
+ 	char *param_addr;
+@@ -351,7 +357,7 @@
+ 			if (num == 0) {
+ 				b->init = 1;
+ 				free(data->param_addr);
+-				data->param_addr = strdup(ptr);
++				data->param_addr = my_strdup(ptr);
+ 			} else if (num == 1) {
+ 				data->accept_nbio = (ptr != NULL);
+ 			} else if (num == 2) {

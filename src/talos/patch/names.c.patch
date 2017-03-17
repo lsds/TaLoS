@@ -1,0 +1,25 @@
+--- ./crypto/evp/names.c	2017-03-08 11:15:50.645466101 +0000
++++ ../talos/./crypto/evp/names.c	2017-03-08 11:13:57.371754024 +0000
+@@ -121,6 +121,10 @@
+ 	return (cp);
+ }
+ 
++EVP_MD *ecall_EVP_get_digestbyname(const char *name) {
++	EVP_MD* md = (EVP_MD*)EVP_get_digestbyname(name);
++	return md;
++}
+ const EVP_MD *
+ EVP_get_digestbyname(const char *name)
+ {
+@@ -131,6 +135,11 @@
+ }
+ 
+ void
++ecall_EVP_cleanup(void)
++{
++	EVP_cleanup();
++}
++void
+ EVP_cleanup(void)
+ {
+ 	OBJ_NAME_cleanup(OBJ_NAME_TYPE_CIPHER_METH);

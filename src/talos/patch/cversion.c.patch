@@ -1,0 +1,40 @@
+--- ./crypto/cversion.c	2017-03-08 11:15:50.593467151 +0000
++++ ../talos/./crypto/cversion.c	2017-03-08 11:13:57.299755478 +0000
+@@ -61,6 +61,37 @@
+ 
+ #include "cryptlib.h"
+ 
++#ifdef COMPILE_WITH_INTEL_SGX
++#include "sgx_error.h"
++#include <string.h>
++
++extern sgx_status_t ocall_malloc(void** retval, size_t size);
++extern sgx_status_t ocall_realloc(void** retval, void* ptr, size_t size);
++extern sgx_status_t ocall_free(void* ptr);
++
++
++static char* SSLeay_version_buffer = NULL;
++#endif
++
++char *
++ecall_SSLeay_version(int t) {
++	const char* v = SSLeay_version(t);
++#ifdef COMPILE_WITH_INTEL_SGX
++	size_t len = strlen(v);
++	if (!SSLeay_version_buffer) {
++		if (len+1 > 64) { // normally SSLeay_version() always returns a string shorter than 64 characters
++			return 0;
++		}
++		ocall_malloc((void**)&SSLeay_version_buffer, 64);
++	}
++	memcpy(SSLeay_version_buffer, v, len);
++	SSLeay_version_buffer[len] = '\0';
++	return SSLeay_version_buffer;
++#else
++	return (char*)v;
++#endif
++}
++
+ const char *
+ SSLeay_version(int t)
+ {

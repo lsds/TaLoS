@@ -1,0 +1,61 @@
+--- ./crypto/bio/bss_conn.c	2017-03-08 11:15:50.553467959 +0000
++++ ../talos/./crypto/bio/bss_conn.c	2017-03-08 11:13:57.247756528 +0000
+@@ -72,6 +72,13 @@
+ 
+ #define SOCKET_PROTOCOL IPPROTO_TCP
+ 
++#ifdef COMPILE_WITH_INTEL_SGX
++extern char *my_strdup(const char *s);
++#else
++#define my_strdup(s) strdup(s)
++#define my_asprintf(strp, fmt, ...) asprintf(strp, fmt, __VA_ARGS__)
++#endif
++
+ typedef struct bio_connect_st {
+ 	int state;
+ 
+@@ -118,6 +125,8 @@
+ 	.callback_ctrl = conn_callback_ctrl
+ };
+ 
++extern int my_asprintf(char **strp, const char *fmt, ...);
++
+ static int
+ conn_state(BIO *b, BIO_CONNECT *c)
+ {
+@@ -152,7 +161,7 @@
+ 							break;
+ 						}
+ 					free(c->param_port);
+-					c->param_port = strdup(p);
++					c->param_port = my_strdup(p);
+ 				}
+ 			}
+ 
+@@ -471,14 +480,14 @@
+ 			b->init = 1;
+ 			if (num == 0) {
+ 				free(data->param_hostname);
+-				data->param_hostname = strdup(ptr);
++				data->param_hostname = my_strdup(ptr);
+ 			} else if (num == 1) {
+ 				free(data->param_port);
+-				data->param_port = strdup(ptr);
++				data->param_port = my_strdup(ptr);
+ 			} else if (num == 2) {
+ 				unsigned char *p = ptr;
+ 				free(data->param_hostname);
+-				if (asprintf(&data->param_hostname,
++				if (my_asprintf(&data->param_hostname,
+ 					"%u.%u.%u.%u", p[0], p[1],
+ 					p[2], p[3]) == -1)
+ 					data->param_hostname = NULL;
+@@ -486,7 +495,7 @@
+ 			} else if (num == 3) {
+ 				free(data->param_port);
+ 				data->port= *(int *)ptr;
+-				if (asprintf(&data->param_port, "%d",
++				if (my_asprintf(&data->param_port, "%d",
+ 					data->port) == -1)
+ 					data->param_port = NULL;
+ 			}

@@ -1,0 +1,15 @@
+--- ./crypto/ec/ec_lib.c	2017-03-08 11:15:50.609466828 +0000
++++ ../talos/./crypto/ec/ec_lib.c	2017-03-08 11:13:57.327754914 +0000
+@@ -112,8 +112,11 @@
+ 	return ret;
+ }
+ 
+-
+ void 
++ecall_EC_GROUP_free(EC_GROUP * group) {
++	return EC_GROUP_free(group);
++}
++void
+ EC_GROUP_free(EC_GROUP * group)
+ {
+ 	if (!group)

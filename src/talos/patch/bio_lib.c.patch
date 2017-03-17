@@ -1,0 +1,316 @@
+--- ./crypto/bio/bio_lib.c	2017-03-08 11:15:50.545468121 +0000
++++ ../talos/./crypto/bio/bio_lib.c	2017-03-08 11:26:40.864374729 +0000
+@@ -64,24 +64,229 @@
+ #include <openssl/err.h>
+ #include <openssl/stack.h>
+ 
++#ifdef COMPILE_WITH_INTEL_SGX
++#include "sgx_error.h"
++#include "sgx_thread.h"
++#include "sgx_trts.h"
++#include "sgx_spinlock.h"
++#include "hashmap.h"
++#include "enclaveshim_ocalls.h"
++
++extern sgx_status_t ocall_malloc(void** retval, size_t size);
++sgx_status_t ocall_bio_create(int* retval, BIO* b, void* cb);
++#endif
++
++#ifdef COMPILE_WITH_INTEL_SGX
++
++struct bio_methods_sgx_cb {
++	BIO_METHOD* real_methods;
++	BIO_METHOD* fake_methods;
++};
++
++hashmap* bio_methods_map = NULL;
++sgx_spinlock_t bio_methods_map_lock = 0;
++
++int bio_fake_bwrite(BIO *b, const char *buf, int len) {
++	int retval = 0;
++
++	sgx_spin_lock(&bio_methods_map_lock);
++	struct bio_methods_sgx_cb* sgx_cb_methods = (struct bio_methods_sgx_cb*)hashmapGet(bio_methods_map, (unsigned long)b);
++	sgx_spin_unlock(&bio_methods_map_lock);
++
++	if (sgx_cb_methods) {
++		retval = execute_async_bio_write(b, (char*)buf, len, (void*)sgx_cb_methods->real_methods->bwrite);
++	} else {
++		my_fprintf(0, "%s:%s:%i %lu No bio_methods_sgx_cb for bio %p\n", __FILE__, __func__, __LINE__, (unsigned long)sgx_thread_self(), b);
++	}
++	return retval;
++}
++int bio_fake_bread(BIO *b, char *buf, int len) {
++	int retval = 0;
++
++	sgx_spin_lock(&bio_methods_map_lock);
++	struct bio_methods_sgx_cb* sgx_cb_methods = (struct bio_methods_sgx_cb*)hashmapGet(bio_methods_map, (unsigned long)b);
++	sgx_spin_unlock(&bio_methods_map_lock);
++
++	if (sgx_cb_methods) {
++		retval = execute_async_bio_read(b, buf, len, (void*)sgx_cb_methods->real_methods->bread);
++	} else {
++		my_fprintf(0, "%s:%s:%i %lu No bio_methods_sgx_cb for bio %p\n", __FILE__, __func__, __LINE__, (unsigned long)sgx_thread_self(), b);
++	}
++	return retval;
++}
++int bio_fake_bputs(BIO *b, const char *buf) {
++	my_fprintf(0, "need to call %s in %s:%i\n", __func__, __FILE__, __LINE__);
++	return 0;
++}
++int bio_fake_bgets(BIO *b, char *buf, int len) {
++	my_fprintf(0, "need to call %s in %s:%i\n", __func__, __FILE__, __LINE__);
++	return 0;
++}
++long bio_fake_ctrl(BIO *b, int cmd, long argl, void *arg) {
++	long retval = 0;
++
++#ifdef COMPILE_OPTIMISATION_FOR_APACHE
++	// optimisation: call the ctrl method only for important commands
++	if (cmd != BIO_CTRL_FLUSH && cmd != BIO_CTRL_SET_CLOSE && cmd != BIO_CTRL_GET_CLOSE) {
++		return 0;
++	}
++#endif
++
++	sgx_spin_lock(&bio_methods_map_lock);
++	struct bio_methods_sgx_cb* sgx_cb_methods = (struct bio_methods_sgx_cb*)hashmapGet(bio_methods_map, (unsigned long)b);
++	sgx_spin_unlock(&bio_methods_map_lock);
++
++	if (sgx_cb_methods) {
++		retval = execute_async_bio_ctrl(b, cmd, argl, arg, (void*)sgx_cb_methods->real_methods->ctrl);
++	} else {
++		my_fprintf(0, "%s:%s:%i %lu No bio_methods_sgx_cb for bio %p\n", __FILE__, __func__, __LINE__, (unsigned long)sgx_thread_self(), b);
++	}
++	return retval;
++}
++int bio_fake_create(BIO *b) {
++	int retval = 0;
++
++	sgx_spin_lock(&bio_methods_map_lock);
++	struct bio_methods_sgx_cb* sgx_cb_methods = (struct bio_methods_sgx_cb*)hashmapGet(bio_methods_map, (unsigned long)b);
++	sgx_spin_unlock(&bio_methods_map_lock);
++
++	if (sgx_cb_methods && sgx_cb_methods->real_methods->create) {
++		sgx_status_t ret = ocall_bio_create(&retval, b, (void*)sgx_cb_methods->real_methods->create);
++		if (ret != SGX_SUCCESS) {
++			my_fprintf(0, "%s:%s:%i ret = %i\n", __FILE__, __func__, __LINE__, ret);
++		}
++	} else {
++		my_fprintf(0, "%s:%s:%i %lu No bio_methods_sgx_cb for bio %p\n", __FILE__, __func__, __LINE__, (unsigned long)sgx_thread_self(), b);
++	}
++	return retval;
++}
++int bio_fake_destroy(BIO *b) {
++	int retval = 0;
++
++	sgx_spin_lock(&bio_methods_map_lock);
++	struct bio_methods_sgx_cb* sgx_cb_methods = (struct bio_methods_sgx_cb*)hashmapGet(bio_methods_map, (unsigned long)b);
++	sgx_spin_unlock(&bio_methods_map_lock);
++
++	if (sgx_cb_methods && sgx_cb_methods->real_methods->destroy) {
++		retval = execute_async_bio_destroy(b, (void*)sgx_cb_methods->real_methods->destroy);
++	} else {
++		my_fprintf(0, "%s:%s:%i %lu No bio_methods_sgx_cb for bio %p\n", __FILE__, __func__, __LINE__, (unsigned long)sgx_thread_self(), b);
++	}
++	return retval;
++}
++#endif
++
++BIO *
++ecall_BIO_new(BIO_METHOD *method, int* method_in_enclave) {
++#ifdef COMPILE_WITH_INTEL_SGX
++	if (sgx_is_within_enclave(method, sizeof(*method))) {
++		*method_in_enclave = 1;
++		return BIO_new(method);
++	}
++	*method_in_enclave = 0;
++
++	BIO* ret = NULL;
++	struct bio_methods_sgx_cb* sgx_cb_methods = NULL;
++	if (method) {
++		sgx_cb_methods = (struct bio_methods_sgx_cb*)malloc(sizeof(*sgx_cb_methods));
++		sgx_cb_methods->real_methods = method;
++		sgx_cb_methods->fake_methods = (BIO_METHOD*)malloc(sizeof(*sgx_cb_methods->fake_methods));
++		sgx_cb_methods->fake_methods->type = method->type;
++		sgx_cb_methods->fake_methods->name = method->name;
++		sgx_cb_methods->fake_methods->bwrite = bio_fake_bwrite;
++		sgx_cb_methods->fake_methods->bread = bio_fake_bread;
++		sgx_cb_methods->fake_methods->bputs = bio_fake_bputs;
++		sgx_cb_methods->fake_methods->bgets = bio_fake_bgets;
++		sgx_cb_methods->fake_methods->ctrl = bio_fake_ctrl;
++		sgx_cb_methods->fake_methods->create = bio_fake_create;
++		sgx_cb_methods->fake_methods->destroy = bio_fake_destroy;
++		sgx_cb_methods->fake_methods->callback_ctrl = NULL;
++		method = sgx_cb_methods->fake_methods;
++	}
++
++	// we need to copy the BIO_new() method because it can call our bio_fake_create callback and at this point
++	// we have not inserted anything in the map for that new BIO.
++
++	// the BIO is allocated from the bio pool
++	ret = execute_bio_ocall_malloc(sizeof(*ret));
++
++	if (method) {
++		sgx_spin_lock(&bio_methods_map_lock);
++		if (!bio_methods_map) {
++			bio_methods_map = hashmapCreate(0);
++		}
++		hashmapInsert(bio_methods_map, (const void*)sgx_cb_methods, (unsigned long)ret);
++		sgx_spin_unlock(&bio_methods_map_lock);
++	}
++
++	if (!BIO_set_from_ecall(ret, method)) {
++		if (method) {
++			sgx_spin_lock(&bio_methods_map_lock);
++			hashmapRemove(bio_methods_map, (unsigned long)ret);
++			sgx_spin_unlock(&bio_methods_map_lock);
++
++			free(sgx_cb_methods->fake_methods);
++			free(sgx_cb_methods);
++		}
++
++		execute_bio_ocall_free(ret);
++		ret = NULL;
++	}
++
++	return (ret);
++#else
++	*method_in_enclave = 0;
++	return BIO_new(method);
++#endif
++}
+ BIO *
+ BIO_new(BIO_METHOD *method)
+ {
+ 	BIO *ret = NULL;
+ 
++#ifdef COMPILE_WITH_INTEL_SGX
++	ret = (BIO*)execute_bio_ocall_malloc(sizeof(BIO)); // allocate the BIO outside of the enclave
++#else
+ 	ret = malloc(sizeof(BIO));
++#endif
+ 	if (ret == NULL) {
+ 		BIOerr(BIO_F_BIO_NEW, ERR_R_MALLOC_FAILURE);
+ 		return (NULL);
+ 	}
+ 	if (!BIO_set(ret, method)) {
++#ifdef COMPILE_WITH_INTEL_SGX
++		execute_bio_ocall_free(ret);
++#else
+ 		free(ret);
++#endif
+ 		ret = NULL;
+ 	}
+ 	return (ret);
+ }
+ 
+ int
++BIO_set_from_ecall(BIO *bio, BIO_METHOD *method)
++{
++	bio->method = method;
++	bio->callback = NULL;
++	bio->cb_arg = NULL;
++	bio->init = 0;
++	bio->shutdown = 1;
++	bio->flags = 0;
++	bio->retry_reason = 0;
++	bio->num = 0;
++	bio->ptr = NULL;
++	bio->prev_bio = NULL;
++	bio->next_bio = NULL;
++	bio->references = 1;
++	bio->num_read = 0L;
++	bio->num_write = 0L;
++	CRYPTO_new_ex_data(CRYPTO_EX_INDEX_BIO, bio, &bio->ex_data);
++	//do not call the create callback, we do that once we return from the ecall
++	return (1);
++}
++
++int
+ BIO_set(BIO *bio, BIO_METHOD *method)
+ {
+ 	bio->method = method;
+@@ -108,6 +313,10 @@
+ 	return (1);
+ }
+ 
++int ecall_BIO_free(BIO *a) {
++	return BIO_free(a);
++}
++
+ int
+ BIO_free(BIO *a)
+ {
+@@ -127,7 +336,27 @@
+ 
+ 	if (a->method != NULL && a->method->destroy != NULL)
+ 		a->method->destroy(a);
++
++#ifdef COMPILE_WITH_INTEL_SGX
++
++	sgx_spin_lock(&bio_methods_map_lock);
++	if (!bio_methods_map) {
++		bio_methods_map = hashmapCreate(0);
++	}
++	struct bio_methods_sgx_cb* sgx_cb_methods = hashmapRemove(bio_methods_map, (unsigned long)a);
++	sgx_spin_unlock(&bio_methods_map_lock);
++
++	if (sgx_cb_methods) {
++		free(sgx_cb_methods->fake_methods);
++		free(sgx_cb_methods);
++	}
++#endif
++
++#ifdef COMPILE_WITH_INTEL_SGX
++	execute_bio_ocall_free(a);
++#else
+ 	free(a);
++#endif
+ 	return (1);
+ }
+ 
+@@ -335,12 +564,30 @@
+ }
+ 
+ long
+-BIO_int_ctrl(BIO *b, int cmd, long larg, int iarg)
++ecall_BIO_int_ctrl(BIO *b, int cmd, long larg, int iarg)
+ {
+-	int i;
++	return BIO_int_ctrl(b, cmd, larg, iarg);
++}
++
++#ifdef COMPILE_WITH_INTEL_SGX
++int* outside_iarg_int_ctrl = NULL;
++#endif
+ 
+-	i = iarg;
++long
++BIO_int_ctrl(BIO *b, int cmd, long larg, int iarg)
++{
++#ifdef COMPILE_WITH_INTEL_SGX
++	// BIO_int_ctrl can make an ocall with a pointer to a copy of iarg, so we need memory outside of the enclave
++	if (!outside_iarg_int_ctrl) {
++		ocall_malloc((void**)&outside_iarg_int_ctrl, sizeof(*outside_iarg_int_ctrl));
++	}
++	*outside_iarg_int_ctrl = iarg;
++	return BIO_ctrl(b, cmd, larg, (char *)outside_iarg_int_ctrl);
++#else
++	int i = iarg;
+ 	return (BIO_ctrl(b, cmd, larg, (char *)&i));
++#endif
++
+ }
+ 
+ char *
+@@ -355,6 +602,10 @@
+ }
+ 
+ long
++ecall_BIO_ctrl(BIO *b, int cmd, long larg, void *parg) {
++	return BIO_ctrl(b, cmd, larg, parg);
++}
++long
+ BIO_ctrl(BIO *b, int cmd, long larg, void *parg)
+ {
+ 	long ret;

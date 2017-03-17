@@ -1,0 +1,63 @@
+--- ./crypto/evp/digest.c	2017-03-08 11:15:50.629466425 +0000
++++ ../talos/./crypto/evp/digest.c	2017-03-08 11:13:57.359754267 +0000
+@@ -129,6 +129,11 @@
+ }
+ 
+ EVP_MD_CTX *
++ecall_EVP_MD_CTX_create(void) {
++	return EVP_MD_CTX_create();
++}
++
++EVP_MD_CTX *
+ EVP_MD_CTX_create(void)
+ {
+ 	return calloc(1, sizeof(EVP_MD_CTX));
+@@ -142,6 +147,11 @@
+ }
+ 
+ int
++ecall_EVP_DigestInit_ex(EVP_MD_CTX *ctx, const EVP_MD *type, ENGINE *impl) {
++	return EVP_DigestInit_ex(ctx, type, impl);
++}
++
++int
+ EVP_DigestInit_ex(EVP_MD_CTX *ctx, const EVP_MD *type, ENGINE *impl)
+ {
+ 	EVP_MD_CTX_clear_flags(ctx, EVP_MD_CTX_FLAG_CLEANED);
+@@ -228,6 +238,12 @@
+ }
+ 
+ int
++ecall_EVP_DigestUpdate(EVP_MD_CTX *ctx, const void *data, size_t count)
++{
++	return EVP_DigestUpdate(ctx, data, count);
++}
++
++int
+ EVP_DigestUpdate(EVP_MD_CTX *ctx, const void *data, size_t count)
+ {
+ 	return ctx->update(ctx, data, count);
+@@ -246,6 +262,11 @@
+ 
+ /* The caller can assume that this removes any secret data from the context */
+ int
++ecall_EVP_DigestFinal_ex(EVP_MD_CTX *ctx, unsigned char *md, unsigned int *size)
++{
++	return EVP_DigestFinal_ex(ctx, md, size);
++}
++int
+ EVP_DigestFinal_ex(EVP_MD_CTX *ctx, unsigned char *md, unsigned int *size)
+ {
+ 	int ret;
+@@ -345,6 +366,11 @@
+ }
+ 
+ void
++ecall_EVP_MD_CTX_destroy(EVP_MD_CTX *ctx)
++{
++	return EVP_MD_CTX_destroy(ctx);
++}
++void
+ EVP_MD_CTX_destroy(EVP_MD_CTX *ctx)
+ {
+ 	if (ctx) {

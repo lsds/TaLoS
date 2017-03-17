@@ -1,0 +1,33 @@
+--- ./ssl/ssl_stat.c	2017-03-08 11:15:50.837462223 +0000
++++ ../talos/./ssl/ssl_stat.c	2017-03-08 11:13:57.603749340 +0000
+@@ -86,6 +86,30 @@
+ 
+ #include "ssl_locl.h"
+ 
++#ifdef COMPILE_WITH_INTEL_SGX
++#include "sgx_error.h"
++
++extern sgx_status_t ocall_malloc(void** retval, size_t size);
++
++char* SSL_state_string_long_buffer = NULL;
++#endif
++
++char*
++ecall_SSL_state_string_long(const SSL *s)
++{
++	char* ret = (char*) SSL_state_string_long(s);
++#ifdef COMPILE_WITH_INTEL_SGX
++	if (!SSL_state_string_long_buffer) {
++		ocall_malloc((void*)&SSL_state_string_long_buffer, 8192);
++	}
++	size_t sz = strlen(ret);
++	memcpy(SSL_state_string_long_buffer, ret, sz);
++	SSL_state_string_long_buffer[sz] = '\0';
++	ret = SSL_state_string_long_buffer;
++#endif
++	return ret;
++}
++
+ const char *
+ SSL_state_string_long(const SSL *s)
+ {

@@ -1,0 +1,18 @@
+--- ./crypto/md32_common.h	2017-03-08 11:15:50.653465940 +0000
++++ ../talos/./crypto/md32_common.h	2017-03-08 11:13:57.379753863 +0000
+@@ -225,7 +225,6 @@
+ /*
+  * Time for some action:-)
+  */
+-
+ int
+ HASH_UPDATE(HASH_CTX *c, const void *data_, size_t len)
+ {
+@@ -286,7 +285,6 @@
+ 	HASH_BLOCK_DATA_ORDER (c, data, 1);
+ }
+ 
+-
+ #ifndef HASH_NO_FINAL
+ int HASH_FINAL (unsigned char *md, HASH_CTX *c)
+ {

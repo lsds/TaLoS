@@ -1,0 +1,73 @@
+--- ./crypto/x509/x509_ext.c	2017-03-08 11:15:50.713464727 +0000
++++ ../talos/./crypto/x509/x509_ext.c	2017-03-08 11:13:57.435752731 +0000
+@@ -127,6 +127,10 @@
+ }
+ 
+ int
++ecall_X509_get_ext_by_NID(X509 *x, int nid, int lastpos) {
++	return X509_get_ext_by_NID(x, nid, lastpos);
++}
++int
+ X509_get_ext_by_NID(X509 *x, int nid, int lastpos)
+ {
+ 	return (X509v3_get_ext_by_NID(x->cert_info->extensions, nid, lastpos));
+@@ -146,6 +150,10 @@
+ }
+ 
+ X509_EXTENSION *
++ecall_X509_get_ext(X509 *x, int loc) {
++	return X509_get_ext(x, loc);
++}
++X509_EXTENSION *
+ X509_get_ext(X509 *x, int loc)
+ {
+ 	return (X509v3_get_ext(x->cert_info->extensions, loc));
+@@ -158,11 +166,48 @@
+ }
+ 
+ int
++ecall_X509_add_ext(X509 *x, X509_EXTENSION *ex, int loc)
++{
++	return X509_add_ext(x, ex, loc);
++}
++
++int
+ X509_add_ext(X509 *x, X509_EXTENSION *ex, int loc)
+ {
+ 	return (X509v3_add_ext(&(x->cert_info->extensions), ex, loc) != NULL);
+ }
+ 
++#ifdef COMPILE_WITH_INTEL_SGX
++#include "sgx_error.h"
++
++extern sgx_status_t ocall_malloc(void** retval, size_t size);
++
++BASIC_CONSTRAINTS *out_bc = NULL;
++BASIC_CONSTRAINTS *in_bc = NULL; // need to free the objet later, so save the pointer
++#endif
++
++void *
++ecall_X509_get_ext_d2i(X509 *x, int nid, int *crit, int *idx) {
++	void* ret = X509_get_ext_d2i(x, nid, crit, idx);
++
++#ifdef COMPILE_WITH_INTEL_SGX
++	// to make apache transparent, copy the basic constraints outside the enclave
++	// if the ecall returns a NID_basic_constraints object
++	if (nid == NID_basic_constraints) {
++		if (!out_bc) {
++			ocall_malloc((void**)&out_bc, sizeof(*out_bc));
++		}
++		in_bc = (BASIC_CONSTRAINTS*)ret;
++		out_bc->ca = in_bc->ca;
++		out_bc->pathlen = in_bc->pathlen;
++		return out_bc;
++	} else {
++#endif
++		return ret;
++#ifdef COMPILE_WITH_INTEL_SGX
++	}
++#endif
++}
+ void *
+ X509_get_ext_d2i(X509 *x, int nid, int *crit, int *idx)
+ {

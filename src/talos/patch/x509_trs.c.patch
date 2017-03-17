@@ -1,0 +1,24 @@
+--- ./crypto/x509/x509_trs.c	2017-03-08 11:15:50.721464566 +0000
++++ ../talos/./crypto/x509/x509_trs.c	2017-03-08 11:13:57.447752489 +0000
+@@ -62,6 +62,12 @@
+ #include <openssl/err.h>
+ #include <openssl/x509v3.h>
+ 
++#ifdef COMPILE_WITH_INTEL_SGX
++extern char *my_strdup(const char *s);
++#else
++#define my_strdup(s) strdup(s)
++#endif
++
+ static int tr_cmp(const X509_TRUST * const *a, const X509_TRUST * const *b);
+ static void trtable_free(X509_TRUST *p);
+ 
+@@ -198,7 +204,7 @@
+ 		}
+ 	}
+ 
+-	if ((name_dup = strdup(name)) == NULL)
++	if ((name_dup = my_strdup(name)) == NULL)
+ 		goto err;
+ 
+ 	/* free existing name if dynamic */

@@ -1,0 +1,77 @@
+--- ./include/openssl/evp.h	2017-03-08 11:15:50.765463676 +0000
++++ ../talos/./include/openssl/evp.h	2017-03-08 11:13:57.511751198 +0000
+@@ -469,6 +469,7 @@
+ #define EVP_get_cipherbynid(a) EVP_get_cipherbyname(OBJ_nid2sn(a))
+ #define EVP_get_cipherbyobj(a) EVP_get_cipherbynid(OBJ_obj2nid(a))
+ 
++int ecall_EVP_MD_type(const EVP_MD *md);
+ int EVP_MD_type(const EVP_MD *md);
+ #define EVP_MD_nid(e)			EVP_MD_type(e)
+ #define EVP_MD_name(e)			OBJ_nid2sn(EVP_MD_nid(e))
+@@ -537,15 +538,20 @@
+ 
+ void EVP_MD_CTX_init(EVP_MD_CTX *ctx);
+ int EVP_MD_CTX_cleanup(EVP_MD_CTX *ctx);
++EVP_MD_CTX *ecall_EVP_MD_CTX_create(void);
+ EVP_MD_CTX *EVP_MD_CTX_create(void);
++void ecall_EVP_MD_CTX_destroy(EVP_MD_CTX *ctx);
+ void EVP_MD_CTX_destroy(EVP_MD_CTX *ctx);
+ int EVP_MD_CTX_copy_ex(EVP_MD_CTX *out, const EVP_MD_CTX *in);
+ void EVP_MD_CTX_set_flags(EVP_MD_CTX *ctx, int flags);
+ void EVP_MD_CTX_clear_flags(EVP_MD_CTX *ctx, int flags);
+ int EVP_MD_CTX_ctrl(EVP_MD_CTX *ctx, int type, int arg, void *ptr);
+ int EVP_MD_CTX_test_flags(const EVP_MD_CTX *ctx, int flags);
++int ecall_EVP_DigestInit_ex(EVP_MD_CTX *ctx, const EVP_MD *type, ENGINE *impl);
+ int EVP_DigestInit_ex(EVP_MD_CTX *ctx, const EVP_MD *type, ENGINE *impl);
++int ecall_EVP_DigestUpdate(EVP_MD_CTX *ctx, const void *d, size_t cnt);
+ int EVP_DigestUpdate(EVP_MD_CTX *ctx, const void *d, size_t cnt);
++int ecall_EVP_DigestFinal_ex(EVP_MD_CTX *ctx, unsigned char *md, unsigned int *s);
+ int EVP_DigestFinal_ex(EVP_MD_CTX *ctx, unsigned char *md, unsigned int *s);
+ int EVP_Digest(const void *data, size_t count, unsigned char *md,
+     unsigned int *size, const EVP_MD *type, ENGINE *impl);
+@@ -661,6 +667,7 @@
+ const EVP_MD *EVP_md5(void);
+ #endif
+ #ifndef OPENSSL_NO_SHA
++const EVP_MD *ecall_EVP_sha1(void);
+ const EVP_MD *EVP_sha1(void);
+ const EVP_MD *EVP_dss(void);
+ const EVP_MD *EVP_dss1(void);
+@@ -820,6 +827,7 @@
+ const EVP_CIPHER *EVP_gost2814789_cnt(void);
+ #endif
+ 
++void ecall_OPENSSL_add_all_algorithms_noconf(void);
+ void OPENSSL_add_all_algorithms_noconf(void);
+ void OPENSSL_add_all_algorithms_conf(void);
+ 
+@@ -840,7 +848,9 @@
+ int EVP_add_digest(const EVP_MD *digest);
+ 
+ const EVP_CIPHER *EVP_get_cipherbyname(const char *name);
++EVP_MD *ecall_EVP_get_digestbyname(const char *name);
+ const EVP_MD *EVP_get_digestbyname(const char *name);
++void ecall_EVP_cleanup(void);
+ void EVP_cleanup(void);
+ 
+ void EVP_CIPHER_do_all(void (*fn)(const EVP_CIPHER *ciph, const char *from,
+@@ -857,9 +867,11 @@
+     int enc_key_len, EVP_PKEY *private_key);
+ int EVP_PKEY_encrypt_old(unsigned char *enc_key, const unsigned char *key,
+     int key_len, EVP_PKEY *pub_key);
++int ecall_EVP_PKEY_type(int type);
+ int EVP_PKEY_type(int type);
+ int EVP_PKEY_id(const EVP_PKEY *pkey);
+ int EVP_PKEY_base_id(const EVP_PKEY *pkey);
++int ecall_EVP_PKEY_bits(EVP_PKEY *pkey);
+ int EVP_PKEY_bits(EVP_PKEY *pkey);
+ int EVP_PKEY_size(EVP_PKEY *pkey);
+ int EVP_PKEY_set_type(EVP_PKEY *pkey, int type);
+@@ -892,6 +904,7 @@
+ #endif
+ 
+ EVP_PKEY *EVP_PKEY_new(void);
++void ecall_EVP_PKEY_free(EVP_PKEY *pkey);
+ void EVP_PKEY_free(EVP_PKEY *pkey);
+ 
+ EVP_PKEY *d2i_PublicKey(int type, EVP_PKEY **a, const unsigned char **pp,

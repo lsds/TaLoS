@@ -1,0 +1,50 @@
+--- ./crypto/ocsp/ocsp_lib.c	2017-03-08 11:15:50.665465696 +0000
++++ ../talos/./crypto/ocsp/ocsp_lib.c	2017-03-08 11:13:57.391753618 +0000
+@@ -74,6 +74,12 @@
+ #include <openssl/x509.h>
+ #include <openssl/x509v3.h>
+ 
++#ifdef COMPILE_WITH_INTEL_SGX
++extern char *my_strdup(const char *s);
++#else
++#define my_strdup(s) strdup(s)
++#endif
++
+ /* Convert a certificate and its issuer to an OCSP_CERTID */
+ 
+ OCSP_CERTID *
+@@ -190,7 +196,7 @@
+ 	*ppath = NULL;
+ 
+ 	/* dup the buffer since we are going to mess with it */
+-	buf = url ? strdup(url) : NULL;
++	buf = url ? my_strdup(url) : NULL;
+ 	if (!buf)
+ 		goto mem_err;
+ 
+@@ -221,9 +227,9 @@
+ 	/* Check for trailing part of path */
+ 	p = strchr(p, '/');
+ 	if (!p)
+-		*ppath = strdup("/");
++		*ppath = my_strdup("/");
+ 	else {
+-		*ppath = strdup(p);
++		*ppath = my_strdup(p);
+ 		/* Set start of path to 0 so hostname is valid */
+ 		*p = '\0';
+ 	}
+@@ -243,11 +249,11 @@
+ 			port = "80";
+ 	}
+ 
+-	*pport = strdup(port);
++	*pport = my_strdup(port);
+ 	if (!*pport)
+ 		goto mem_err;
+ 
+-	*phost = strdup(host);
++	*phost = my_strdup(host);
+ 
+ 	if (!*phost)
+ 		goto mem_err;

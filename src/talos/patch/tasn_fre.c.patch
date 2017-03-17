@@ -1,0 +1,54 @@
+--- ./crypto/asn1/tasn_fre.c	2017-03-08 11:15:50.533468363 +0000
++++ ../talos/./crypto/asn1/tasn_fre.c	2017-03-08 11:13:57.219757093 +0000
+@@ -62,6 +62,13 @@
+ #include <openssl/asn1t.h>
+ #include <openssl/objects.h>
+ 
++#ifdef COMPILE_WITH_INTEL_SGX
++#include "sgx_error.h"
++#include "sgx_trts.h"
++
++extern sgx_status_t ocall_free(void* ptr);
++#endif
++
+ static void asn1_item_combine_free(ASN1_VALUE **pval, const ASN1_ITEM *it,
+     int combine);
+ 
+@@ -79,6 +86,19 @@
+ 	asn1_item_combine_free(pval, it, 0);
+ }
+ 
++static void smart_free(void* ptr) {
++#ifdef COMPILE_WITH_INTEL_SGX
++	if (sgx_is_within_enclave(ptr, 1)) {
++#else
++		free(ptr);
++#endif
++#ifdef COMPILE_WITH_INTEL_SGX
++	} else {
++		ocall_free(ptr);
++	}
++#endif
++}
++
+ static void
+ asn1_item_combine_free(ASN1_VALUE **pval, const ASN1_ITEM *it, int combine)
+ {
+@@ -122,7 +142,7 @@
+ 		if (asn1_cb)
+ 			asn1_cb(ASN1_OP_FREE_POST, pval, it, NULL);
+ 		if (!combine) {
+-			free(*pval);
++			smart_free(*pval);
+ 			*pval = NULL;
+ 		}
+ 		break;
+@@ -160,7 +180,7 @@
+ 		if (asn1_cb)
+ 			asn1_cb(ASN1_OP_FREE_POST, pval, it, NULL);
+ 		if (!combine) {
+-			free(*pval);
++			smart_free(*pval);
+ 			*pval = NULL;
+ 		}
+ 		break;

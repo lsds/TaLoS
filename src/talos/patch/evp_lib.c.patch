@@ -1,0 +1,15 @@
+--- ./crypto/evp/evp_lib.c	2017-03-08 11:15:50.633466343 +0000
++++ ../talos/./crypto/evp/evp_lib.c	2017-03-08 11:13:57.363754184 +0000
+@@ -276,6 +276,12 @@
+ }
+ 
+ int
++ecall_EVP_MD_type(const EVP_MD *md)
++{
++	return EVP_MD_type(md);
++}
++
++int
+ EVP_MD_type(const EVP_MD *md)
+ {
+ 	return md->type;

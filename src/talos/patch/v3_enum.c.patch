@@ -1,0 +1,24 @@
+--- ./crypto/x509v3/v3_enum.c	2017-03-08 11:15:50.733464324 +0000
++++ ../talos/./crypto/x509v3/v3_enum.c	2017-03-08 11:13:57.463752167 +0000
+@@ -60,6 +60,12 @@
+ #include <string.h>
+ #include <openssl/x509v3.h>
+ 
++#ifdef COMPILE_WITH_INTEL_SGX
++extern char *my_strdup(const char *s);
++#else
++#define my_strdup(s) strdup(s)
++#endif
++
+ static ENUMERATED_NAMES crl_reasons[] = {
+ 	{CRL_REASON_UNSPECIFIED, 	 "Unspecified", "unspecified"},
+ 	{CRL_REASON_KEY_COMPROMISE,	 "Key Compromise", "keyCompromise"},
+@@ -101,7 +107,7 @@
+ 	strval = ASN1_ENUMERATED_get(e);
+ 	for (enam = method->usr_data; enam->lname; enam++) {
+ 		if (strval == enam->bitnum)
+-			return strdup(enam->lname);
++			return my_strdup(enam->lname);
+ 	}
+ 	return i2s_ASN1_ENUMERATED(method, e);
+ }

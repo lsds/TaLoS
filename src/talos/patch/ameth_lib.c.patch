@@ -1,0 +1,32 @@
+--- ./crypto/asn1/ameth_lib.c	2017-03-08 11:15:50.521468606 +0000
++++ ../talos/./crypto/asn1/ameth_lib.c	2017-03-08 11:13:57.211757256 +0000
+@@ -117,6 +117,12 @@
+ DECLARE_OBJ_BSEARCH_CMP_FN(const EVP_PKEY_ASN1_METHOD *,
+     const EVP_PKEY_ASN1_METHOD *, ameth);
+ 
++#ifdef COMPILE_WITH_INTEL_SGX
++extern char *my_strdup(const char *s);
++#else
++#define my_strdup(s) strdup(s)
++#endif
++
+ static int
+ ameth_cmp(const EVP_PKEY_ASN1_METHOD * const *a,
+     const EVP_PKEY_ASN1_METHOD * const *b)
+@@ -304,14 +310,14 @@
+ 	ameth->pkey_flags = flags | ASN1_PKEY_DYNAMIC;
+ 
+ 	if (info) {
+-		ameth->info = strdup(info);
++		ameth->info = my_strdup(info);
+ 		if (!ameth->info)
+ 			goto err;
+ 	} else
+ 		ameth->info = NULL;
+ 
+ 	if (pem_str) {
+-		ameth->pem_str = strdup(pem_str);
++		ameth->pem_str = my_strdup(pem_str);
+ 		if (!ameth->pem_str)
+ 			goto err;
+ 	} else

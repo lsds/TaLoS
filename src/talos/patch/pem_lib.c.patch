@@ -1,0 +1,49 @@
+--- ./crypto/pem/pem_lib.c	2017-03-08 11:15:50.673465535 +0000
++++ ../talos/./crypto/pem/pem_lib.c	2017-03-08 11:13:57.399753460 +0000
+@@ -71,6 +71,8 @@
+ #include <openssl/pkcs12.h>
+ #include <openssl/x509.h>
+ 
++#include <openssl/ssl.h>
++
+ #ifndef OPENSSL_NO_DES
+ #include <openssl/des.h>
+ #endif
+@@ -82,6 +84,12 @@
+ 
+ #define MIN_LENGTH	4
+ 
++#ifdef COMPILE_WITH_INTEL_SGX
++extern int my_fprintf(FILE *stream, const char *format, ...);
++#else
++#define my_fprintf(stream, format, ...) fprintf(stream, format, __VA_ARGS__)
++#endif
++
+ static int load_iv(char **fromp, unsigned char *to, int num);
+ static int check_pem(const char *nm, const char *name);
+ int pem_check_suffix(const char *pem_str, const char *suffix);
+@@ -119,7 +127,7 @@
+ 		}
+ 		l = strlen(buf);
+ 		if (l < MIN_LENGTH) {
+-			fprintf(stderr, "phrase is too short, "
++			my_fprintf(stderr, "phrase is too short, "
+ 			    "needs to be at least %zu chars\n",
+ 			    (size_t)MIN_LENGTH);
+ 		} else
+@@ -324,6 +332,15 @@
+ }
+ 
+ int
++ecall_PEM_ASN1_write(i2d_of_void *i2d, const char *name, void *fp, void *x,
++    const EVP_CIPHER *enc, unsigned char *kstr, int klen,
++    pem_password_cb *callback, void *u)
++{
++	//PL: i2d is a function pointer to i2d_SSL_SESSION outside the enclave
++	//as it is an ecall, we replace the pointer here directly to avoid making an ocall
++	return PEM_ASN1_write((int(*)())i2d_SSL_SESSION, name, (FILE*)fp, x, enc, kstr, klen, callback, u);
++}
++int
+ PEM_ASN1_write(i2d_of_void *i2d, const char *name, FILE *fp, void *x,
+     const EVP_CIPHER *enc, unsigned char *kstr, int klen,
+     pem_password_cb *callback, void *u)

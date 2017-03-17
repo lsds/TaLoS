@@ -1,0 +1,38 @@
+--- ./crypto/x509v3/v3_purp.c	2017-03-08 11:15:50.737464243 +0000
++++ ../talos/./crypto/x509v3/v3_purp.c	2017-03-08 11:13:57.467752086 +0000
+@@ -65,6 +65,12 @@
+ #include <openssl/x509v3.h>
+ #include <openssl/x509_vfy.h>
+ 
++#ifdef COMPILE_WITH_INTEL_SGX
++extern char *my_strdup(const char *s);
++#else
++#define my_strdup(s) strdup(s)
++#endif
++
+ static void x509v3_cache_extensions(X509 *x);
+ 
+ static int check_ssl_ca(const X509 *x);
+@@ -228,9 +234,9 @@
+ 	} else
+ 		ptmp = X509_PURPOSE_get0(idx);
+ 
+-	if ((name_dup = strdup(name)) == NULL)
++	if ((name_dup = my_strdup(name)) == NULL)
+ 		goto err;
+-	if ((sname_dup = strdup(sname)) == NULL)
++	if ((sname_dup = my_strdup(sname)) == NULL)
+ 		goto err;
+ 
+ 	/* free existing name if dynamic */
+@@ -799,6 +805,10 @@
+  */
+ 
+ int
++ecall_X509_check_issued(X509 *issuer, X509 *subject) {
++	return X509_check_issued(issuer, subject);
++}
++int
+ X509_check_issued(X509 *issuer, X509 *subject)
+ {
+ 	if (X509_NAME_cmp(X509_get_subject_name(issuer),

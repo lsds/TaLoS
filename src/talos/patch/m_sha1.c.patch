@@ -1,0 +1,14 @@
+--- ./crypto/evp/m_sha1.c	2017-03-08 11:15:50.637466262 +0000
++++ ../talos/./crypto/evp/m_sha1.c	2017-03-08 11:13:57.367754103 +0000
+@@ -110,6 +110,11 @@
+ };
+ 
+ const EVP_MD *
++ecall_EVP_sha1(void) {
++	return EVP_sha1();
++}
++
++const EVP_MD *
+ EVP_sha1(void)
+ {
+ 	return (&sha1_md);

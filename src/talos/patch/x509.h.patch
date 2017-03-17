@@ -1,0 +1,180 @@
+--- ./include/openssl/x509.h	2017-03-08 11:15:50.785463273 +0000
++++ ../talos/./include/openssl/x509.h	2017-03-08 11:13:57.539750632 +0000
+@@ -611,8 +611,6 @@
+ 
+ #define		X509_get_version(x) ASN1_INTEGER_get((x)->cert_info->version)
+ /* #define	X509_get_serialNumber(x) ((x)->cert_info->serialNumber) */
+-#define		X509_get_notBefore(x) ((x)->cert_info->validity->notBefore)
+-#define		X509_get_notAfter(x) ((x)->cert_info->validity->notAfter)
+ #define		X509_extract_key(x)	X509_get_pubkey(x) /*****/
+ #define		X509_REQ_get_version(x) ASN1_INTEGER_get((x)->req_info->version)
+ #define		X509_REQ_get_subject_name(x) ((x)->req_info->subject)
+@@ -626,6 +624,11 @@
+ #define		X509_CRL_get_issuer(x) ((x)->crl->issuer)
+ #define		X509_CRL_get_REVOKED(x) ((x)->crl->revoked)
+ 
++ASN1_TIME* ecall_X509_get_notBefore(X509* x);
++ASN1_TIME* X509_get_notBefore(X509* x);
++ASN1_TIME* ecall_X509_get_notAfter(X509* x);
++ASN1_TIME* X509_get_notAfter(X509* x);
++
+ void X509_CRL_set_default_method(const X509_CRL_METHOD *meth);
+ X509_CRL_METHOD *X509_CRL_METHOD_new(
+ 	int (*crl_init)(X509_CRL *crl),
+@@ -662,6 +665,7 @@
+ int X509_signature_dump(BIO *bp,const ASN1_STRING *sig, int indent);
+ int X509_signature_print(BIO *bp,X509_ALGOR *alg, ASN1_STRING *sig);
+ 
++int ecall_X509_sign(X509 *x, EVP_PKEY *pkey, const EVP_MD *md);
+ int X509_sign(X509 *x, EVP_PKEY *pkey, const EVP_MD *md);
+ int X509_sign_ctx(X509 *x, EVP_MD_CTX *ctx);
+ int X509_REQ_sign(X509_REQ *x, EVP_PKEY *pkey, const EVP_MD *md);
+@@ -670,8 +674,12 @@
+ int X509_CRL_sign_ctx(X509_CRL *x, EVP_MD_CTX *ctx);
+ int NETSCAPE_SPKI_sign(NETSCAPE_SPKI *x, EVP_PKEY *pkey, const EVP_MD *md);
+ 
++int ecall_X509_pubkey_digest(const X509 *data,const EVP_MD *type,
++		unsigned char *md, unsigned int *len);
+ int X509_pubkey_digest(const X509 *data,const EVP_MD *type,
+ 		unsigned char *md, unsigned int *len);
++int ecall_X509_digest(const X509 *data,const EVP_MD *type,
++		unsigned char *md, unsigned int *len);
+ int X509_digest(const X509 *data,const EVP_MD *type,
+ 		unsigned char *md, unsigned int *len);
+ int X509_CRL_digest(const X509_CRL *data,const EVP_MD *type,
+@@ -828,6 +836,7 @@
+ DECLARE_ASN1_FUNCTIONS(X509_EXTENSION)
+ DECLARE_ASN1_ENCODE_FUNCTIONS(X509_EXTENSIONS, X509_EXTENSIONS, X509_EXTENSIONS)
+ 
++void ecall_X509_NAME_ENTRY_free(X509_NAME_ENTRY *a);
+ DECLARE_ASN1_FUNCTIONS(X509_NAME_ENTRY)
+ 
+ DECLARE_ASN1_FUNCTIONS(X509_NAME)
+@@ -836,20 +845,27 @@
+ 
+ DECLARE_ASN1_FUNCTIONS(X509_CINF)
+ 
++void ecall_X509_free(X509 *a);
++X509* ecall_X509_new(void);
+ DECLARE_ASN1_FUNCTIONS(X509)
+ DECLARE_ASN1_FUNCTIONS(X509_CERT_AUX)
+ 
+ DECLARE_ASN1_FUNCTIONS(X509_CERT_PAIR)
+ 
++int ecall_X509_get_ex_new_index(long argl, void *argp, CRYPTO_EX_new *new_func,
++	     CRYPTO_EX_dup *dup_func, CRYPTO_EX_free *free_func);
+ int X509_get_ex_new_index(long argl, void *argp, CRYPTO_EX_new *new_func,
+ 	     CRYPTO_EX_dup *dup_func, CRYPTO_EX_free *free_func);
++int ecall_X509_set_ex_data(X509 *r, int idx, void *arg);
+ int X509_set_ex_data(X509 *r, int idx, void *arg);
++void *ecall_X509_get_ex_data(X509 *r, int idx);
+ void *X509_get_ex_data(X509 *r, int idx);
+ int		i2d_X509_AUX(X509 *a,unsigned char **pp);
+ X509 *		d2i_X509_AUX(X509 **a,const unsigned char **pp,long length);
+ 
+ int X509_alias_set1(X509 *x, unsigned char *name, int len);
+ int X509_keyid_set1(X509 *x, unsigned char *id, int len);
++unsigned char * ecall_X509_alias_get0(X509 *x, int *len);
+ unsigned char * X509_alias_get0(X509 *x, int *len);
+ unsigned char * X509_keyid_get0(X509 *x, int *len);
+ int (*X509_TRUST_set_default(int (*trust)(int , X509 *, int)))(int, X509 *, int);
+@@ -878,7 +894,10 @@
+ #ifndef OPENSSL_NO_EVP
+ X509_INFO *	X509_INFO_new(void);
+ void		X509_INFO_free(X509_INFO *a);
++char *		ecall_X509_NAME_oneline(X509_NAME *a,char *buf,int size);
+ char *		X509_NAME_oneline(X509_NAME *a,char *buf,int size);
++ASN1_OBJECT* ecall_X509_get_algorithm(X509* ptr);
++ASN1_OBJECT* X509_get_algorithm(X509* ptr);
+ 
+ int ASN1_item_digest(const ASN1_ITEM *it,const EVP_MD *type,void *data,
+ 	unsigned char *md,unsigned int *len);
+@@ -894,15 +913,25 @@
+ 	     	ASN1_BIT_STRING *signature, void *asn, EVP_MD_CTX *ctx);
+ #endif
+ 
++int 		ecall_X509_set_version(X509 *x,long version);
+ int 		X509_set_version(X509 *x,long version);
+ int 		X509_set_serialNumber(X509 *x, ASN1_INTEGER *serial);
++ASN1_INTEGER *	ecall_X509_get_serialNumber(X509 *x);
+ ASN1_INTEGER *	X509_get_serialNumber(X509 *x);
++int 		ecall_X509_set_issuer_name(X509 *x, X509_NAME *name);
+ int 		X509_set_issuer_name(X509 *x, X509_NAME *name);
+ X509_NAME *	X509_get_issuer_name(X509 *a);
++int 		ecall_X509_set_subject_name(X509 *x, X509_NAME *name);
+ int 		X509_set_subject_name(X509 *x, X509_NAME *name);
++X509_NAME *	ecall_X509_get_subject_name(X509 *a);
+ X509_NAME *	X509_get_subject_name(X509 *a);
++ASN1_OBJECT* ecall_X509_get_cert_key_algor_algorithm(X509* x);
++ASN1_OBJECT* X509_get_cert_key_algor_algorithm(X509* x);
++int 		ecall_X509_set_notBefore(X509 *x, const ASN1_TIME *tm);
+ int 		X509_set_notBefore(X509 *x, const ASN1_TIME *tm);
++int 		ecall_X509_set_notAfter(X509 *x, const ASN1_TIME *tm);
+ int 		X509_set_notAfter(X509 *x, const ASN1_TIME *tm);
++int 		ecall_X509_set_pubkey(X509 *x, EVP_PKEY *pkey);
+ int 		X509_set_pubkey(X509 *x, EVP_PKEY *pkey);
+ EVP_PKEY *	X509_get_pubkey(X509 *x);
+ ASN1_BIT_STRING * X509_get0_pubkey_bitstr(const X509 *x);
+@@ -948,6 +977,7 @@
+ 
+ int		X509_REQ_check_private_key(X509_REQ *x509,EVP_PKEY *pkey);
+ 
++int		ecall_X509_check_private_key(X509 *x509,EVP_PKEY *pkey);
+ int		X509_check_private_key(X509 *x509,EVP_PKEY *pkey);
+ 
+ int		X509_issuer_and_serial_cmp(const X509 *a, const X509 *b);
+@@ -990,6 +1020,8 @@
+ #endif
+ 
+ int 		X509_NAME_entry_count(X509_NAME *name);
++int 		ecall_X509_NAME_get_text_by_NID(X509_NAME *name, int nid,
++			char *buf,int len);
+ int 		X509_NAME_get_text_by_NID(X509_NAME *name, int nid,
+ 			char *buf,int len);
+ int		X509_NAME_get_text_by_OBJ(X509_NAME *name, ASN1_OBJECT *obj,
+@@ -997,15 +1029,20 @@
+ 
+ /* NOTE: you should be passsing -1, not 0 as lastpos.  The functions that use
+  * lastpos, search after that position on. */
++int 		ecall_X509_NAME_get_index_by_NID(X509_NAME *name,int nid,int lastpos);
+ int 		X509_NAME_get_index_by_NID(X509_NAME *name,int nid,int lastpos);
+ int 		X509_NAME_get_index_by_OBJ(X509_NAME *name,ASN1_OBJECT *obj,
+ 			int lastpos);
++X509_NAME_ENTRY *ecall_X509_NAME_get_entry(X509_NAME *name, int loc);
+ X509_NAME_ENTRY *X509_NAME_get_entry(X509_NAME *name, int loc);
++X509_NAME_ENTRY *ecall_X509_NAME_delete_entry(X509_NAME *name, int loc);
+ X509_NAME_ENTRY *X509_NAME_delete_entry(X509_NAME *name, int loc);
+ int 		X509_NAME_add_entry(X509_NAME *name,X509_NAME_ENTRY *ne,
+ 			int loc, int set);
+ int X509_NAME_add_entry_by_OBJ(X509_NAME *name, ASN1_OBJECT *obj, int type,
+ 			unsigned char *bytes, int len, int loc, int set);
++int ecall_X509_NAME_add_entry_by_NID(X509_NAME *name, int nid, int type,
++			unsigned char *bytes, int len, int loc, int set);
+ int X509_NAME_add_entry_by_NID(X509_NAME *name, int nid, int type,
+ 			unsigned char *bytes, int len, int loc, int set);
+ X509_NAME_ENTRY *X509_NAME_ENTRY_create_by_txt(X509_NAME_ENTRY **ne,
+@@ -1022,6 +1059,7 @@
+ int 		X509_NAME_ENTRY_set_data(X509_NAME_ENTRY *ne, int type,
+ 			const unsigned char *bytes, int len);
+ ASN1_OBJECT *	X509_NAME_ENTRY_get_object(X509_NAME_ENTRY *ne);
++ASN1_STRING *	ecall_X509_NAME_ENTRY_get_data(X509_NAME_ENTRY *ne);
+ ASN1_STRING *	X509_NAME_ENTRY_get_data(X509_NAME_ENTRY *ne);
+ 
+ int		X509v3_get_ext_count(const STACK_OF(X509_EXTENSION) *x);
+@@ -1037,12 +1075,16 @@
+ 					 X509_EXTENSION *ex, int loc);
+ 
+ int		X509_get_ext_count(X509 *x);
++int		ecall_X509_get_ext_by_NID(X509 *x, int nid, int lastpos);
+ int		X509_get_ext_by_NID(X509 *x, int nid, int lastpos);
+ int		X509_get_ext_by_OBJ(X509 *x,ASN1_OBJECT *obj,int lastpos);
+ int		X509_get_ext_by_critical(X509 *x, int crit, int lastpos);
++X509_EXTENSION *ecall_X509_get_ext(X509 *x, int loc);
+ X509_EXTENSION *X509_get_ext(X509 *x, int loc);
+ X509_EXTENSION *X509_delete_ext(X509 *x, int loc);
++int		ecall_X509_add_ext(X509 *x, X509_EXTENSION *ex, int loc);
+ int		X509_add_ext(X509 *x, X509_EXTENSION *ex, int loc);
++void	*	ecall_X509_get_ext_d2i(X509 *x, int nid, int *crit, int *idx);
+ void	*	X509_get_ext_d2i(X509 *x, int nid, int *crit, int *idx);
+ int		X509_add1_ext_i2d(X509 *x, int nid, void *value, int crit,
+ 							unsigned long flags);

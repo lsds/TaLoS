@@ -1,0 +1,57 @@
+--- ./crypto/asn1/x_x509.c	2017-03-08 11:15:50.541468201 +0000
++++ ../talos/./crypto/asn1/x_x509.c	2017-03-08 11:13:57.231756851 +0000
+@@ -260,12 +260,21 @@
+ }
+ 
+ X509 *
++ecall_X509_new(void)
++{
++	return X509_new();
++}
++X509 *
+ X509_new(void)
+ {
+ 	return (X509 *)ASN1_item_new(&X509_it);
+ }
+ 
+ void
++ecall_X509_free(X509 *a) {
++	return X509_free(a);
++}
++void
+ X509_free(X509 *a)
+ {
+ 	ASN1_item_free((ASN1_VALUE *)a, &X509_it);
+@@ -278,6 +287,11 @@
+ }
+ 
+ int
++ecall_X509_get_ex_new_index(long argl, void *argp, CRYPTO_EX_new *new_func,
++    CRYPTO_EX_dup *dup_func, CRYPTO_EX_free *free_func) {
++	return X509_get_ex_new_index(argl, argp, new_func, dup_func, free_func);
++}
++int
+ X509_get_ex_new_index(long argl, void *argp, CRYPTO_EX_new *new_func,
+     CRYPTO_EX_dup *dup_func, CRYPTO_EX_free *free_func)
+ {
+@@ -286,12 +300,20 @@
+ }
+ 
+ int
++ecall_X509_set_ex_data(X509 *r, int idx, void *arg) {
++	return X509_set_ex_data(r, idx, arg);
++}
++int
+ X509_set_ex_data(X509 *r, int idx, void *arg)
+ {
+ 	return (CRYPTO_set_ex_data(&r->ex_data, idx, arg));
+ }
+ 
+ void *
++ecall_X509_get_ex_data(X509 *r, int idx) {
++	return X509_get_ex_data(r, idx);
++}
++void *
+ X509_get_ex_data(X509 *r, int idx)
+ {
+ 	return (CRYPTO_get_ex_data(&r->ex_data, idx));

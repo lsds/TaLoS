@@ -1,0 +1,46 @@
+--- ./include/openssl/err.h	2017-03-08 11:15:50.761463758 +0000
++++ ../talos/./include/openssl/err.h	2017-03-08 11:13:57.507751278 +0000
+@@ -315,20 +315,28 @@
+ void ERR_put_error(int lib, int func, int reason, const char *file, int line);
+ void ERR_set_error_data(char *data, int flags);
+ 
++unsigned long ecall_ERR_get_error(void);
+ unsigned long ERR_get_error(void);
+ unsigned long ERR_get_error_line(const char **file, int *line);
+ unsigned long ERR_get_error_line_data(const char **file, int *line,
+     const char **data, int *flags);
++unsigned long ecall_ERR_peek_error(void);
+ unsigned long ERR_peek_error(void);
+ unsigned long ERR_peek_error_line(const char **file, int *line);
++unsigned long ecall_ERR_peek_error_line_data(const char **file, int *line,
++    const char **data, int *flags);
+ unsigned long ERR_peek_error_line_data(const char **file, int *line,
+     const char **data, int *flags);
++unsigned long ecall_ERR_peek_last_error(void);
+ unsigned long ERR_peek_last_error(void);
+ unsigned long ERR_peek_last_error_line(const char **file, int *line);
+ unsigned long ERR_peek_last_error_line_data(const char **file, int *line,
+     const char **data, int *flags);
++void ecall_ERR_clear_error(void );
+ void ERR_clear_error(void );
++char *ecall_ERR_error_string(unsigned long e, char *buf);
+ char *ERR_error_string(unsigned long e, char *buf);
++void ecall_ERR_error_string_n(unsigned long e, char *buf, size_t len);
+ void ERR_error_string_n(unsigned long e, char *buf, size_t len);
+ const char *ERR_lib_error_string(unsigned long e);
+ const char *ERR_func_error_string(unsigned long e);
+@@ -345,11 +353,14 @@
+ void ERR_load_strings(int lib, ERR_STRING_DATA str[]);
+ void ERR_unload_strings(int lib, ERR_STRING_DATA str[]);
+ void ERR_load_ERR_strings(void);
++void ecall_ERR_load_crypto_strings(void);
+ void ERR_load_crypto_strings(void);
++void ecall_ERR_free_strings(void);
+ void ERR_free_strings(void);
+ 
+ void ERR_remove_thread_state(const CRYPTO_THREADID *tid);
+ #ifndef OPENSSL_NO_DEPRECATED
++void ecall_ERR_remove_state(unsigned long pid); /* if zero we look it up */
+ void ERR_remove_state(unsigned long pid); /* if zero we look it up */
+ #endif
+ ERR_STATE *ERR_get_state(void);
