@@ -10,6 +10,9 @@ must be guaranteed. TaLoS provides good performance by executing enclave
 transitions asynchronously and leveraging user-level threading inside the
 enclave.
 
+The code is accompanied with a [technical report](https://www.doc.ic.ac.uk/research/technicalreports/2017/DTRS17-5.pdf), containing
+details about the architecture and performance results.  
+
 In contrast to the [SSL add-on for the Intel SGX SDK](https://software.intel.com/en-us/sgx-sdk/download), TaLoS exposes the
 OpenSSL/LibreSSL API to untrusted code outside of the enclave. This means that
 existing applications can use the TaLoS library with no or only minor
@@ -17,7 +20,7 @@ modifications. The Intel SGX SDK SSL add-on does not expose an outside
 interface, which means that applications must be modified to use it.
 
 The current implementation of TaLoS utilises libreSSL v2.4.1 and has been
-tested with the applications under Linux:
+tested with the following applications under Linux:
 
 - [Apache web server](https://httpd.apache.org/) (v2.4.23);
 
@@ -314,7 +317,7 @@ If an interface function does not have an associated ecall, it prints a `need to
 To reduce the cost of enclave transitions, it is possible to activate the
 asynchronous queue. Instead of threads entering and exiting the enclave,
 user-level tasks, implemented by the [lthread](https://github.com/halayli/lthread) library inside the enclave,
-then perform call executions.
+perform call executions.
 
 Applications threads share two arrays with the lthread tasks to send ecalls and
 ocalls requests and results. These arrays are defined at lines 206 and 207 of
