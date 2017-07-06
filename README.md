@@ -1,5 +1,7 @@
 # TaLoS: Efficient TLS Termination Inside SGX Enclaves for Existing Applications
 
+[![Jenkins Status](https://wwwpub.zih.tu-dresden.de/~krahn/ci/talos/status.svg)](https://wwwpub.zih.tu-dresden.de/~krahn/ci/talos/build.xml)
+
 TaLoS<sup>[1](#talosfootnote)</sup> is a TLS library that allows existing applications (with an
 OpenSSL/LibreSSL interface) to securely terminate their TLS connection. For
 this, TaLoS places security-sensistive code and data of the TLS library inside
