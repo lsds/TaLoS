@@ -6,8 +6,8 @@ ENV	LIBRESSL_VERSION 2.4.1
 
 ARG 	MAIN_DIR=/talos/
 
-ARG	SGX_FILE=sgx_linux_ubuntu16.04.1_x64_sdk_1.8.100.37689.bin
-ARG	SGX_URL=https://download.01.org/intel-sgx/linux-1.8/${SGX_FILE}
+ARG	SGX_FILE=sgx_linux_ubuntu16.04.1_x64_sdk_1.9.100.39124.bin
+ARG	SGX_URL=https://download.01.org/intel-sgx/linux-1.9/${SGX_FILE}
 
 ARG	LIBRESSL_ROOT=${MAIN_DIR}/src/libressl-${LIBRESSL_VERSION}/
 ARG	LIBRESSL_CRYPTO=${LIBRESSL_ROOT}/crypto
