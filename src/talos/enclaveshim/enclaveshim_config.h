@@ -24,4 +24,6 @@
 
 #undef COMPILE_OPTIMISATION_FOR_APACHE // define this macro to remove a few unnecessary ocalls for Apache (but needed by nginx/squid)
 
+#define SQUID_WORKAROUND // define this macro when compiling with Squid, to activate AES-NI and avoid an illegal instruction
+
 #endif

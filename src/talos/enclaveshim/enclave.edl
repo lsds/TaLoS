@@ -177,6 +177,8 @@ enclave {
 		public long ecall_SSL_SESSION_set_timeout([user_check] SSL_SESSION* session, long t);
 		public int ecall_BN_clear_bit([user_check] BIGNUM *a, int n);
 		public int ecall_SSL_select_next_proto([user_check] unsigned char **out, [user_check] unsigned char *outlen, [user_check] const unsigned char *in, unsigned int inlen, [user_check] const unsigned char *client, unsigned int client_len);
+		public int ecall_SSL_set_alpn_protos([user_check] SSL *ssl, [user_check] const unsigned char* protos, unsigned int protos_len);
+
 
 		/* Apache */
 		public char *ecall_SSLeay_version(int type);

@@ -1,6 +1,6 @@
---- ./crypto/asn1/tasn_fre.c	2017-07-12 09:55:36.738516122 +0200
-+++ ../talos/./crypto/asn1/tasn_fre.c	2017-07-12 09:53:01.614452013 +0200
-@@ -62,6 +62,13 @@
+--- ./crypto/asn1/tasn_fre.c	2017-07-17 11:08:35.977338374 +0100
++++ ../talos/./crypto/asn1/tasn_fre.c	2017-07-17 11:08:32.261409300 +0100
+@@ -62,6 +62,15 @@
  #include <openssl/asn1t.h>
  #include <openssl/objects.h>
  
@@ -8,13 +8,15 @@
 +#include "sgx_error.h"
 +#include "sgx_trts.h"
 +
++#include "enclaveshim_config.h"
++
 +extern sgx_status_t ocall_free(void* ptr);
 +#endif
 +
  static void asn1_item_combine_free(ASN1_VALUE **pval, const ASN1_ITEM *it,
      int combine);
  
-@@ -79,6 +86,18 @@
+@@ -79,6 +88,21 @@
  	asn1_item_combine_free(pval, it, 0);
  }
  
@@ -22,7 +24,10 @@
 +#ifdef COMPILE_WITH_INTEL_SGX
 +	if (sgx_is_within_enclave(ptr, 1)) {
 +#endif
++#ifndef SQUID_WORKAROUND
++		//Squid frees the same pointer twice with SGX...
 +		free(ptr);
++#endif
 +#ifdef COMPILE_WITH_INTEL_SGX
 +	} else {
 +		ocall_free(ptr);
@@ -33,7 +38,7 @@
  static void
  asn1_item_combine_free(ASN1_VALUE **pval, const ASN1_ITEM *it, int combine)
  {
-@@ -122,7 +141,7 @@
+@@ -122,7 +146,7 @@
  		if (asn1_cb)
  			asn1_cb(ASN1_OP_FREE_POST, pval, it, NULL);
  		if (!combine) {
@@ -42,7 +47,7 @@
  			*pval = NULL;
  		}
  		break;
-@@ -160,7 +179,7 @@
+@@ -160,7 +184,7 @@
  		if (asn1_cb)
  			asn1_cb(ASN1_OP_FREE_POST, pval, it, NULL);
  		if (!combine) {
