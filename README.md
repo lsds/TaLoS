@@ -282,10 +282,11 @@ void logpoint_log(char *req, char *rsp, unsigned int req_len, unsigned int rsp_l
 
 TaLoS hooks into the `ssl3_read_bytes` and `do_ssl3_write` functions of
 LibreSSL to monitor respectively the HTTPS request right after it has been
-decrypted and the HTTPS response right before it is encrypted.  The `logpoint.c` file
-then builds pairs of request/corresponding response for each TLS connection and
-each communication exchange between the client and the server. Once such a pair
-has been constructed, it is sent to the `logpoint_log` function.
+decrypted and the HTTPS response right before it is encrypted.  The
+`enclaveshim_logpoint.c` file then builds pairs of request/corresponding
+response for each TLS connection and each communication exchange between the
+client and the server. Once such a pair has been constructed, it is sent to the
+`logpoint_log` function, defined in `logpoint.c`.
 
 The `logpoint.c` example provided with TaLoS simply prints a message for each
 call of `logpoint_log`.  It can be quite easily extended to support any other
