@@ -2,15 +2,19 @@
 
 [![Jenkins Status](https://wwwpub.zih.tu-dresden.de/~krahn/ci/talos/status.svg)](https://wwwpub.zih.tu-dresden.de/~krahn/ci/talos/build.xml)
 
-TaLoS<sup>[1](#talosfootnote)</sup> is a TLS library that allows existing applications (with an
-OpenSSL/LibreSSL interface) to securely terminate their TLS connection. For
-this, TaLoS places security-sensistive code and data of the TLS library inside
-an [Intel SGX enclave](https://software.intel.com/sgx-sdk), while the rest of the application remains outside. It
-can then be used as the building block for a wide range of security-critical
-applications for which the integrity and/or confidentiality of TLS connections
-must be guaranteed. TaLoS provides good performance by executing enclave
-transitions asynchronously and leveraging user-level threading inside the
-enclave.
+TaLoS<sup>[1](#talosfootnote)</sup> is a TLS library that allows existing
+applications (with an OpenSSL/LibreSSL interface) to securely terminate their
+TLS connection. For this, TaLoS places security-sensistive code and data of the
+TLS library inside an [Intel SGX enclave](https://software.intel.com/sgx-sdk),
+while the rest of the application remains outside. It can then be used as the
+building block for a wide range of security-critical applications for which the
+integrity and/or confidentiality of TLS connections must be guaranteed.  TaLoS
+offers the developper a simple interface to log and/or process HTTPS
+communications securely.  For example, this interface can be used to securely
+send the HTTPS requests and responses to another enclave or to encrypt them
+before logging them to persistent storage.  TaLoS provides good performance by
+executing enclave transitions asynchronously and leveraging user-level
+threading inside the enclave.
 
 The code is accompanied with a [technical report](https://www.doc.ic.ac.uk/research/technicalreports/2017/DTRS17-5.pdf), containing
 details about the architecture and performance results.  
@@ -163,6 +167,9 @@ variable in this file):
 MOD_CFLAGS = -I${PROJECT_ROOT}/src/libressl-2.4.1/include
 MOD_LDFLAGS = -L${PROJECT_ROOT}/src/libressl-2.4.1/lib -lssl -lcrypto -ldl -luuid -lrt -lcrypt -lpthread -lsgx_urts -lsgx_uae_service
 ```
+
+To work properly with TaLoS, Apache requires the `COMPILE_OPTIMISATION_FOR_APACHE` macro in `enclaveshim_config.h` to be defined. If this is not the case, then you will first need to define it and compile TaLoS again.
+
 Apache is now ready to be compiled and installed:
 ```bash
 $ make
@@ -259,6 +266,35 @@ int SSL_function(SSL* ssl, void* args) {
 ```
 
 ## Documentation
+
+### Logging of HTTPS requests and responses
+
+TaLoS can be used to build other systems that need to log/process HTTPS
+requests and responses in a secure manner, inside an SGX enclave.  It provides
+a very simple interface consisting of two functions:
+```c
+// initialize the logpoint module
+void logpoint_init(void);
+
+// send a request/response pair to the logpoint module
+void logpoint_log(char *req, char *rsp, unsigned int req_len, unsigned int rsp_len);
+```
+
+TaLoS hooks into the `ssl3_read_bytes` and `do_ssl3_write` functions of
+LibreSSL to monitor respectively the HTTPS request right after it has been
+decrypted and the HTTPS response right before it is encrypted.  The `logpoint.c` file
+then builds pairs of request/corresponding response for each TLS connection and
+each communication exchange between the client and the server. Once such a pair
+has been constructed, it is sent to the `logpoint_log` function.
+
+The `logpoint.c` example provided with TaLoS simply prints a message for each
+call of `logpoint_log`.  It can be quite easily extended to support any other
+processing on the messages. Note that the request/response pair sent to the
+`logpoint_log` function is read-only: modifying it will not have any effect on
+the messages exchanged between the client and the server. 
+
+To activate the logging module, please define the `DO_LOGGING` macro in
+`enclaveshim_config.h`
 
 ### Interface
 
