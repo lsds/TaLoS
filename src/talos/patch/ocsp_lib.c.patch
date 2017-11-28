@@ -1,5 +1,5 @@
---- ./crypto/ocsp/ocsp_lib.c	2017-03-08 11:15:50.665465696 +0000
-+++ ../talos/./crypto/ocsp/ocsp_lib.c	2017-03-08 11:13:57.391753618 +0000
+--- ./crypto/ocsp/ocsp_lib.c	2017-11-28 10:46:51.996404519 +0000
++++ ../talos/./crypto/ocsp/ocsp_lib.c	2017-07-17 11:08:32.253409452 +0100
 @@ -74,6 +74,12 @@
  #include <openssl/x509.h>
  #include <openssl/x509v3.h>

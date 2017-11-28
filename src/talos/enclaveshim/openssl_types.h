@@ -1392,6 +1392,9 @@ struct ssl_st {
 
 };
 
+typedef long int __ssize_t;
+typedef __ssize_t ssize_t;
+
 #ifdef DEFINE_TIME_STRUCT
 
 typedef long int __time_t;

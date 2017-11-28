@@ -1,5 +1,5 @@
---- ./crypto/dso/dso_dlfcn.c	2017-03-08 11:15:50.601466990 +0000
-+++ ../talos/./crypto/dso/dso_dlfcn.c	2017-03-08 11:13:57.307755317 +0000
+--- ./crypto/dso/dso_dlfcn.c	2017-11-28 10:46:51.996404519 +0000
++++ ../talos/./crypto/dso/dso_dlfcn.c	2017-07-17 11:08:32.213410215 +0100
 @@ -100,6 +100,8 @@
  	.globallookup = dlfcn_globallookup
  };

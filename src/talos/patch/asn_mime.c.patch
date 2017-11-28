@@ -1,5 +1,5 @@
---- ./crypto/asn1/asn_mime.c	2017-03-08 11:15:50.525468524 +0000
-+++ ../talos/./crypto/asn1/asn_mime.c	2017-03-08 11:13:57.215757175 +0000
+--- ./crypto/asn1/asn_mime.c	2017-11-28 10:46:51.992404595 +0000
++++ ../talos/./crypto/asn1/asn_mime.c	2017-07-17 11:08:32.261409300 +0100
 @@ -108,6 +108,12 @@
  static MIME_PARAM *mime_param_find(MIME_HEADER *hdr, char *name);
  static void mime_hdr_free(MIME_HEADER *hdr);

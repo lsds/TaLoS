@@ -1,5 +1,5 @@
---- ./crypto/asn1/asn1_lib.c	2017-07-17 11:08:35.977338374 +0100
-+++ ../talos/./crypto/asn1/asn1_lib.c	2017-07-17 11:08:32.261409300 +0100
+--- ./crypto/asn1/asn1_lib.c	2017-11-28 10:46:51.992404595 +0000
++++ ../talos/./crypto/asn1/asn1_lib.c	2017-11-28 12:32:00.153277193 +0000
 @@ -63,6 +63,14 @@
  #include <openssl/asn1.h>
  #include <openssl/err.h>
@@ -21,7 +21,7 @@
  		unsigned char *tmp;
 -		tmp = realloc(str->data, len + 1);
 +#ifdef COMPILE_WITH_INTEL_SGX
-+		if (sgx_is_within_enclave(str->data, 1)) {
++		if (!str->data || sgx_is_within_enclave(str->data, 1)) {
 +#endif
 +			tmp = realloc(str->data, len + 1);
 +#ifdef COMPILE_WITH_INTEL_SGX

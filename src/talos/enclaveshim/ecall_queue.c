@@ -65,6 +65,18 @@ struct mpmcq* newmpmc(int nslots) {
 		printf("Async message %s is too big: %lu > %d\n", "cell_ssl_shutdown", sizeof(struct cell_ssl_shutdown), QUEUE_MAX_MESSAGE_SIZE);
 		return NULL;
 	}
+	if (sizeof(struct cell_ssl_set_connect_state) > QUEUE_MAX_MESSAGE_SIZE) {
+		printf("Async message %s is too big: %lu > %d\n", "cell_ssl_set_connect_state", sizeof(struct cell_ssl_set_connect_state), QUEUE_MAX_MESSAGE_SIZE);
+		return NULL;
+	}
+	if (sizeof(struct cell_ssl_get_certificate) > QUEUE_MAX_MESSAGE_SIZE) {
+		printf("Async message %s is too big: %lu > %d\n", "cell_ssl_get_certificate", sizeof(struct cell_ssl_get_certificate), QUEUE_MAX_MESSAGE_SIZE);
+		return NULL;
+	}
+	if (sizeof(struct cell_ssl_get_error) > QUEUE_MAX_MESSAGE_SIZE) {
+		printf("Async message %s is too big: %lu > %d\n", "cell_ssl_get_error", sizeof(struct cell_ssl_get_error), QUEUE_MAX_MESSAGE_SIZE);
+		return NULL;
+	}
 	if (sizeof(struct cell_bio_new) > QUEUE_MAX_MESSAGE_SIZE) {
 		printf("Async message %s is too big: %lu > %d\n", "cell_bio_new", sizeof(struct cell_bio_new), QUEUE_MAX_MESSAGE_SIZE);
 		return NULL;

@@ -1,5 +1,5 @@
---- ./crypto/dso/dso_lib.c	2017-03-08 11:15:50.605466908 +0000
-+++ ../talos/./crypto/dso/dso_lib.c	2017-03-08 11:13:57.315755154 +0000
+--- ./crypto/dso/dso_lib.c	2017-11-28 10:46:51.996404519 +0000
++++ ../talos/./crypto/dso/dso_lib.c	2017-07-17 11:08:32.213410215 +0100
 @@ -63,6 +63,12 @@
  #include <openssl/dso.h>
  #include <openssl/err.h>

@@ -1,5 +1,5 @@
---- ./crypto/asn1/ameth_lib.c	2017-03-08 11:15:50.521468606 +0000
-+++ ../talos/./crypto/asn1/ameth_lib.c	2017-03-08 11:13:57.211757256 +0000
+--- ./crypto/asn1/ameth_lib.c	2017-11-28 10:46:51.992404595 +0000
++++ ../talos/./crypto/asn1/ameth_lib.c	2017-07-17 11:08:32.261409300 +0100
 @@ -117,6 +117,12 @@
  DECLARE_OBJ_BSEARCH_CMP_FN(const EVP_PKEY_ASN1_METHOD *,
      const EVP_PKEY_ASN1_METHOD *, ameth);

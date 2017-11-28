@@ -1,5 +1,5 @@
---- ./crypto/txt_db/txt_db.c	2017-03-08 11:15:50.697465051 +0000
-+++ ../talos/./crypto/txt_db/txt_db.c	2017-03-08 11:13:57.415753134 +0000
+--- ./crypto/txt_db/txt_db.c	2017-11-28 10:46:51.996404519 +0000
++++ ../talos/./crypto/txt_db/txt_db.c	2017-07-17 11:08:32.257409376 +0100
 @@ -66,6 +66,12 @@
  #undef BUFSIZE
  #define BUFSIZE	512

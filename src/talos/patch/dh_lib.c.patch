@@ -1,5 +1,5 @@
---- ./crypto/dh/dh_lib.c	2017-03-08 11:15:50.597467071 +0000
-+++ ../talos/./crypto/dh/dh_lib.c	2017-03-08 11:13:57.303755397 +0000
+--- ./crypto/dh/dh_lib.c	2017-11-28 10:46:51.996404519 +0000
++++ ../talos/./crypto/dh/dh_lib.c	2017-07-17 11:08:32.213410215 +0100
 @@ -68,6 +68,12 @@
  #include <openssl/engine.h>
  #endif

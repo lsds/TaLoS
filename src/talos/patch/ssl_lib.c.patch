@@ -1,6 +1,6 @@
---- ./ssl/ssl_lib.c	2017-07-17 11:08:35.997337993 +0100
-+++ ../talos/./ssl/ssl_lib.c	2017-07-17 11:08:26.857512440 +0100
-@@ -157,6 +157,36 @@
+--- ./ssl/ssl_lib.c	2017-11-28 14:45:46.994122633 +0000
++++ ../talos/./ssl/ssl_lib.c	2017-11-28 14:43:49.016342053 +0000
+@@ -157,6 +157,37 @@
  
  #include "bytestring.h"
  
@@ -13,6 +13,7 @@
 +#include "lthread.h"
 +#include "mpmc_queue.h"
 +#include "enclaveshim_ocalls.h"
++#include "sgx_thread.h"
 +#endif
 +
 +#ifdef COMPILE_WITH_INTEL_SGX
@@ -37,14 +38,39 @@
  const char *SSL_version_str = OPENSSL_VERSION_TEXT;
  
  SSL3_ENC_METHOD ssl3_undef_enc_method = {
-@@ -260,6 +290,113 @@
+@@ -260,6 +291,131 @@
  	return (1);
  }
  
 +#ifdef COMPILE_WITH_INTEL_SGX
 +
-+hashmap* ssl_hardening_map = NULL;
-+sgx_spinlock_t ssl_hardening_map_lock = 0;
++static int ssl_hardening_initialized = 0;
++static hashmap* ssl_hardening_map = NULL;
++sgx_spinlock_t ssl_hardening_map_lock = SGX_SPINLOCK_INITIALIZER;
++
++static hashmap* get_ssl_hardening() {
++	int expected = 0;
++	int desired = 1;
++	if (__atomic_compare_exchange_n(&ssl_hardening_initialized, &expected, desired, 0, __ATOMIC_RELAXED, __ATOMIC_RELAXED)) {
++		ssl_hardening_map = hashmapCreate(251);
++	}
++	while (!ssl_hardening_map) {
++		// burn cycles
++	}
++
++	hashmap* m = (hashmap*)hashmapGet(ssl_hardening_map, (unsigned long)sgx_thread_self());
++	if (!m) {
++		m = hashmapCreate(251);
++		sgx_spin_lock(&ssl_hardening_map_lock);
++		//	need a lock on the insert, just to be safe. However each thread will acquire the lock only once during its execution
++		hashmapInsert(ssl_hardening_map, (const void*)m, (unsigned long)sgx_thread_self());
++		sgx_spin_unlock(&ssl_hardening_map_lock);
++	}
++
++	//my_printf("thread %lu get_ssl_hardening -> %p\n", (unsigned long)sgx_thread_self(), m);
++
++	return m;
++}
 +
 +void SSL_copy_fields_to_out_struct(const SSL* in, SSL* out) {
 +	out->state = in->state;
@@ -75,9 +101,8 @@
 +}
 +
 +SSL* SSL_get_in_pointer(SSL* out_s) {
-+	sgx_spin_lock(&ssl_hardening_map_lock);
-+	SSL* in_s = (SSL*) hashmapGet(ssl_hardening_map, (unsigned long)out_s);
-+	sgx_spin_unlock(&ssl_hardening_map_lock);
++	hashmap* m = get_ssl_hardening();
++	SSL* in_s = (SSL*) hashmapGet(m, (unsigned long)out_s);
 +	return in_s;
 +}
 +
@@ -85,9 +110,8 @@
 +	SSL* in_s = s;
 +	int retval;
 +
-+	sgx_spin_lock(&ssl_hardening_map_lock);
-+	SSL* out_s = (SSL*) hashmapGet(ssl_hardening_map, (unsigned long)in_s);
-+	sgx_spin_unlock(&ssl_hardening_map_lock);
++	hashmap* m = get_ssl_hardening();
++	SSL* out_s = (SSL*) hashmapGet(m, (unsigned long)in_s);
 +
 +	SSL_copy_fields_to_out_struct(in_s, out_s);
 +	retval = ocall_alpn_select_cb_async_wrapper(out_s, out, outlen, in, inlen, arg, cb);
@@ -100,9 +124,8 @@
 +	SSL* in_s = s;
 +	int retval;
 +
-+	sgx_spin_lock(&ssl_hardening_map_lock);
-+	SSL* out_s = (SSL*) hashmapGet(ssl_hardening_map, (unsigned long)in_s);
-+	sgx_spin_unlock(&ssl_hardening_map_lock);
++	hashmap* m = get_ssl_hardening();
++	SSL* out_s = (SSL*) hashmapGet(m, (unsigned long)in_s);
 +
 +	SSL_copy_fields_to_out_struct(in_s, out_s);
 +	sgx_status_t ret = ocall_next_protos_advertised_cb(&retval, out_s, buf, len, arg, cb);
@@ -135,13 +158,9 @@
 +	SSL* s = SSL_new(ctx);
 +	SSL_copy_fields_to_out_struct(s, out_s);
 +
-+	sgx_spin_lock(&ssl_hardening_map_lock);
-+	if (!ssl_hardening_map) {
-+		ssl_hardening_map = hashmapCreate(0);
-+	}
-+	hashmapInsert(ssl_hardening_map, (const void*)out_s, (unsigned long)s); // map[s] = out_s
-+	hashmapInsert(ssl_hardening_map, (const void*)s, (unsigned long)out_s); // map[out_s] = s
-+	sgx_spin_unlock(&ssl_hardening_map_lock);
++	hashmap* m = get_ssl_hardening();
++	hashmapInsert(m, (const void*)out_s, (unsigned long)s); // map[s] = out_s
++	hashmapInsert(m, (const void*)s, (unsigned long)out_s); // map[out_s] = s
 +
 +	return out_s;
 +#else
@@ -151,7 +170,7 @@
  SSL *
  SSL_new(SSL_CTX *ctx)
  {
-@@ -368,6 +505,11 @@
+@@ -368,6 +524,11 @@
  }
  
  int
@@ -163,7 +182,7 @@
  SSL_CTX_set_session_id_context(SSL_CTX *ctx, const unsigned char *sid_ctx,
      unsigned int sid_ctx_len)
  {
-@@ -383,6 +525,25 @@
+@@ -383,6 +544,24 @@
  }
  
  int
@@ -173,9 +192,8 @@
 +#ifdef COMPILE_WITH_INTEL_SGX
 +	SSL* out_s = ssl;
 +
-+	sgx_spin_lock(&ssl_hardening_map_lock);
-+	SSL* in_s = (SSL*) hashmapGet(ssl_hardening_map, (unsigned long)out_s);
-+	sgx_spin_unlock(&ssl_hardening_map_lock);
++	hashmap* m = get_ssl_hardening();
++	SSL* in_s = (SSL*) hashmapGet(m, (unsigned long)out_s);
 +
 +	SSL_copy_fields_to_in_struct(in_s, out_s);
 +	int ret = SSL_set_session_id_context(in_s, sid_ctx, sid_ctx_len);
@@ -189,7 +207,7 @@
  SSL_set_session_id_context(SSL *ssl, const unsigned char *sid_ctx,
      unsigned int sid_ctx_len)
  {
-@@ -477,17 +638,39 @@
+@@ -477,17 +656,38 @@
  	return (X509_VERIFY_PARAM_set1(ssl->param, vpm));
  }
  
@@ -199,14 +217,13 @@
 +#ifdef COMPILE_WITH_INTEL_SGX
 +	SSL* out_s = s;
 +
-+	sgx_spin_lock(&ssl_hardening_map_lock);
-+	SSL* in_s = (SSL*) hashmapGet(ssl_hardening_map, (unsigned long)out_s);
++	hashmap* m = get_ssl_hardening();
++	SSL* in_s = (SSL*) hashmapGet(m, (unsigned long)out_s);
 +	out_s->references = in_s->references-1;
 +	if (out_s->references <= 0) {
-+		hashmapRemove(ssl_hardening_map, (unsigned long)out_s);
-+		hashmapRemove(ssl_hardening_map, (unsigned long)in_s);
++		hashmapRemove(m, (unsigned long)out_s);
++		hashmapRemove(m, (unsigned long)in_s);
 +	}
-+	sgx_spin_unlock(&ssl_hardening_map_lock);
 +
 +	// no need for an ocall_free(out_s) as the untrusted code in enclaveshim_ecalls.c does it for us
 +	s = in_s;
@@ -231,7 +248,7 @@
  
  	if (s->param)
  		X509_VERIFY_PARAM_free(s->param);
-@@ -562,6 +745,23 @@
+@@ -562,6 +762,22 @@
  }
  
  void
@@ -240,9 +257,8 @@
 +#ifdef COMPILE_WITH_INTEL_SGX
 +	SSL* out_s = s;
 +
-+	sgx_spin_lock(&ssl_hardening_map_lock);
-+	SSL* in_s = (SSL*) hashmapGet(ssl_hardening_map, (unsigned long)out_s);
-+	sgx_spin_unlock(&ssl_hardening_map_lock);
++	hashmap* m = get_ssl_hardening();
++	SSL* in_s = (SSL*) hashmapGet(m, (unsigned long)out_s);
 +
 +	SSL_copy_fields_to_in_struct(in_s, out_s);
 +	SSL_set_bio(in_s, rbio, wbio);
@@ -255,7 +271,7 @@
  SSL_set_bio(SSL *s, BIO *rbio, BIO *wbio)
  {
  	/* If the output buffering BIO is still in place, remove it */
-@@ -581,12 +781,48 @@
+@@ -581,12 +797,46 @@
  }
  
  BIO *
@@ -264,9 +280,8 @@
 +#ifdef COMPILE_WITH_INTEL_SGX
 +	SSL* out_s = (SSL*)s;
 +
-+	sgx_spin_lock(&ssl_hardening_map_lock);
-+	SSL* in_s = (SSL*) hashmapGet(ssl_hardening_map, (unsigned long)out_s);
-+	sgx_spin_unlock(&ssl_hardening_map_lock);
++	hashmap* m = get_ssl_hardening();
++	SSL* in_s = (SSL*) hashmapGet(m, (unsigned long)out_s);
 +
 +	SSL_copy_fields_to_in_struct(in_s, out_s);
 +	BIO* ret = SSL_get_rbio((const SSL*)in_s);
@@ -288,9 +303,8 @@
 +#ifdef COMPILE_WITH_INTEL_SGX
 +	SSL* out_s = (SSL*)s;
 +
-+	sgx_spin_lock(&ssl_hardening_map_lock);
-+	SSL* in_s = (SSL*) hashmapGet(ssl_hardening_map, (unsigned long)out_s);
-+	sgx_spin_unlock(&ssl_hardening_map_lock);
++	hashmap* m = get_ssl_hardening();
++	SSL* in_s = (SSL*) hashmapGet(m, (unsigned long)out_s);
 +
 +	SSL_copy_fields_to_in_struct(in_s, out_s);
 +	BIO* ret = SSL_get_wbio((const SSL*)in_s);
@@ -304,7 +318,7 @@
  SSL_get_wbio(const SSL *s)
  {
  	return (s->wbio);
-@@ -625,6 +861,24 @@
+@@ -625,6 +875,23 @@
  }
  
  int
@@ -312,9 +326,8 @@
 +#ifdef COMPILE_WITH_INTEL_SGX
 +	SSL* out_s = s;
 +
-+	sgx_spin_lock(&ssl_hardening_map_lock);
-+	SSL* in_s = (SSL*) hashmapGet(ssl_hardening_map, (unsigned long)out_s);
-+	sgx_spin_unlock(&ssl_hardening_map_lock);
++	hashmap* m = get_ssl_hardening();
++	SSL* in_s = (SSL*) hashmapGet(m, (unsigned long)out_s);
 +
 +	SSL_copy_fields_to_in_struct(in_s, out_s);
 +	int ret = SSL_set_fd(in_s, fd);
@@ -329,7 +342,7 @@
  SSL_set_fd(SSL *s, int fd)
  {
  	int	 ret = 0;
-@@ -722,6 +976,24 @@
+@@ -722,6 +989,23 @@
  
  
  int
@@ -338,9 +351,8 @@
 +#ifdef COMPILE_WITH_INTEL_SGX
 +	SSL* out_s = (SSL*)s;
 +
-+	sgx_spin_lock(&ssl_hardening_map_lock);
-+	SSL* in_s = (SSL*) hashmapGet(ssl_hardening_map, (unsigned long)out_s);
-+	sgx_spin_unlock(&ssl_hardening_map_lock);
++	hashmap* m = get_ssl_hardening();
++	SSL* in_s = (SSL*) hashmapGet(m, (unsigned long)out_s);
 +
 +	SSL_copy_fields_to_in_struct(in_s, out_s);
 +	int ret = SSL_get_verify_mode((const SSL*)in_s);
@@ -354,7 +366,7 @@
  SSL_get_verify_mode(const SSL *s)
  {
  	return (s->verify_mode);
-@@ -740,6 +1012,11 @@
+@@ -740,6 +1024,11 @@
  }
  
  int
@@ -366,7 +378,7 @@
  SSL_CTX_get_verify_mode(const SSL_CTX *ctx)
  {
  	return (ctx->verify_mode);
-@@ -751,11 +1028,51 @@
+@@ -751,11 +1040,50 @@
  	return (X509_VERIFY_PARAM_get_depth(ctx->param));
  }
  
@@ -404,9 +416,8 @@
 +#ifdef COMPILE_WITH_INTEL_SGX
 +	SSL* out_s = s;
 +
-+	sgx_spin_lock(&ssl_hardening_map_lock);
-+	SSL* in_s = (SSL*) hashmapGet(ssl_hardening_map, (unsigned long)out_s);
-+	sgx_spin_unlock(&ssl_hardening_map_lock);
++	hashmap* m = get_ssl_hardening();
++	SSL* in_s = (SSL*) hashmapGet(m, (unsigned long)out_s);
 +
 +	SSL_copy_fields_to_in_struct(in_s, out_s);
 +	SSL_set_verify(in_s, mode, callback);
@@ -418,7 +429,7 @@
  void
  SSL_set_verify(SSL *s, int mode,
      int (*callback)(int ok, X509_STORE_CTX *ctx))
-@@ -766,6 +1083,10 @@
+@@ -766,6 +1094,10 @@
  }
  
  void
@@ -429,7 +440,7 @@
  SSL_set_verify_depth(SSL *s, int depth)
  {
  	X509_VERIFY_PARAM_set_depth(s->param, depth);
-@@ -784,6 +1105,25 @@
+@@ -784,6 +1116,24 @@
  }
  
  int
@@ -439,9 +450,8 @@
 +#ifdef COMPILE_WITH_INTEL_SGX
 +	SSL* out_s = (SSL*)s;
 +
-+	sgx_spin_lock(&ssl_hardening_map_lock);
-+	SSL* in_s = (SSL*) hashmapGet(ssl_hardening_map, (unsigned long)out_s);
-+	sgx_spin_unlock(&ssl_hardening_map_lock);
++	hashmap* m = get_ssl_hardening();
++	SSL* in_s = (SSL*) hashmapGet(m, (unsigned long)out_s);
 +
 +	SSL_copy_fields_to_in_struct(in_s, out_s);
 +	ret = SSL_pending(in_s);
@@ -455,7 +465,7 @@
  SSL_pending(const SSL *s)
  {
  	/*
-@@ -798,6 +1138,24 @@
+@@ -798,6 +1148,23 @@
  }
  
  X509 *
@@ -464,9 +474,8 @@
 +#ifdef COMPILE_WITH_INTEL_SGX
 +	SSL* out_s = (SSL*)s;
 +
-+	sgx_spin_lock(&ssl_hardening_map_lock);
-+	SSL* in_s = (SSL*) hashmapGet(ssl_hardening_map, (unsigned long)out_s);
-+	sgx_spin_unlock(&ssl_hardening_map_lock);
++	hashmap* m = get_ssl_hardening();
++	SSL* in_s = (SSL*) hashmapGet(m, (unsigned long)out_s);
 +
 +	SSL_copy_fields_to_in_struct(in_s, out_s);
 +	X509* ret = SSL_get_peer_certificate((const SSL*)in_s);
@@ -480,7 +489,7 @@
  SSL_get_peer_certificate(const SSL *s)
  {
  	X509	*r;
-@@ -869,6 +1227,10 @@
+@@ -869,6 +1236,10 @@
  
  /* Fix this so it checks all the valid key/cert options */
  int
@@ -491,7 +500,7 @@
  SSL_CTX_check_private_key(const SSL_CTX *ctx)
  {
  	if ((ctx == NULL) || (ctx->cert == NULL) ||
-@@ -914,6 +1276,121 @@
+@@ -914,6 +1285,136 @@
  	    ssl->cert->key->privatekey));
  }
  
@@ -549,6 +558,22 @@
 +			size = sizeof(*s);
 +			//my_printf("task %p slot %d ecall_SSL_shutdown\n", lthread_current(), slot);
 +			s->ret = ecall_SSL_shutdown(s->ssl);
++		} else if (type == ecall_ssl_set_connect_state) {
++			struct cell_ssl_set_connect_state* s = (struct cell_ssl_set_connect_state*)msg;
++			size = sizeof(*s);
++			//my_printf("task %p slot %d ecall_SSL_set_connect_state\n", lthread_current(), slot);
++			ecall_SSL_set_connect_state(s->ssl);
++			s->ret = 1;
++		} else if (type == ecall_ssl_get_certificate) {
++			struct cell_ssl_get_certificate* s = (struct cell_ssl_get_certificate*)msg;
++			size = sizeof(*s);
++			//my_printf("task %p slot %d ecall_SSL_get_certificate\n", lthread_current(), slot);
++			s->ret = ecall_SSL_get_certificate(s->ssl);
++		} else if (type == ecall_ssl_get_error) {
++			struct cell_ssl_get_error* s = (struct cell_ssl_get_error*)msg;
++			size = sizeof(*s);
++			//my_printf("task %p slot %d ecall_SSL_get_error\n", lthread_current(), slot);
++			s->ret = ecall_SSL_get_error(s->ssl, s->ret_code);
 +		} else if (type == ecall_bio_new) {
 +			struct cell_bio_new* s = (struct cell_bio_new*)msg;
 +			size = sizeof(*s);
@@ -597,9 +622,8 @@
 +#ifdef COMPILE_WITH_INTEL_SGX
 +	SSL* out_s = s;
 +
-+	sgx_spin_lock(&ssl_hardening_map_lock);
-+	SSL* in_s = (SSL*) hashmapGet(ssl_hardening_map, (unsigned long)out_s);
-+	sgx_spin_unlock(&ssl_hardening_map_lock);
++	hashmap* m = get_ssl_hardening();
++	SSL* in_s = (SSL*) hashmapGet(m, (unsigned long)out_s);
 +
 +	SSL_copy_fields_to_in_struct(in_s, out_s);
 +	int ret = SSL_accept(in_s);
@@ -613,7 +637,7 @@
  int
  SSL_accept(SSL *s)
  {
-@@ -924,6 +1401,24 @@
+@@ -924,6 +1425,23 @@
  }
  
  int
@@ -622,9 +646,8 @@
 +#ifdef COMPILE_WITH_INTEL_SGX
 +	SSL* out_s = s;
 +
-+	sgx_spin_lock(&ssl_hardening_map_lock);
-+	SSL* in_s = (SSL*) hashmapGet(ssl_hardening_map, (unsigned long)out_s);
-+	sgx_spin_unlock(&ssl_hardening_map_lock);
++	hashmap* m = get_ssl_hardening();
++	SSL* in_s = (SSL*) hashmapGet(m, (unsigned long)out_s);
 +
 +	SSL_copy_fields_to_in_struct(in_s, out_s);
 +	ret = SSL_connect(in_s);
@@ -638,7 +661,7 @@
  SSL_connect(SSL *s)
  {
  	if (s->handshake_func == NULL)
-@@ -939,6 +1434,23 @@
+@@ -939,6 +1457,22 @@
  }
  
  int
@@ -646,9 +669,8 @@
 +#ifdef COMPILE_WITH_INTEL_SGX
 +	SSL* out_s = s;
 +
-+	sgx_spin_lock(&ssl_hardening_map_lock);
-+	SSL* in_s = (SSL*) hashmapGet(ssl_hardening_map, (unsigned long)out_s);
-+	sgx_spin_unlock(&ssl_hardening_map_lock);
++	hashmap* m = get_ssl_hardening();
++	SSL* in_s = (SSL*) hashmapGet(m, (unsigned long)out_s);
 +
 +	SSL_copy_fields_to_in_struct(in_s, out_s);
 +	int ret = SSL_read(in_s, buf, num);
@@ -662,7 +684,7 @@
  SSL_read(SSL *s, void *buf, int num)
  {
  	if (s->handshake_func == NULL) {
-@@ -968,6 +1480,23 @@
+@@ -968,6 +1502,22 @@
  }
  
  int
@@ -670,9 +692,8 @@
 +#ifdef COMPILE_WITH_INTEL_SGX
 +	SSL* out_s = s;
 +
-+	sgx_spin_lock(&ssl_hardening_map_lock);
-+	SSL* in_s = (SSL*) hashmapGet(ssl_hardening_map, (unsigned long)out_s);
-+	sgx_spin_unlock(&ssl_hardening_map_lock);
++	hashmap* m = get_ssl_hardening();
++	SSL* in_s = (SSL*) hashmapGet(m, (unsigned long)out_s);
 +
 +	SSL_copy_fields_to_in_struct(in_s, out_s);
 +	int ret = SSL_write(in_s, buf, num);
@@ -686,7 +707,7 @@
  SSL_write(SSL *s, const void *buf, int num)
  {
  	if (s->handshake_func == NULL) {
-@@ -984,6 +1513,23 @@
+@@ -984,6 +1534,22 @@
  }
  
  int
@@ -694,9 +715,8 @@
 +#ifdef COMPILE_WITH_INTEL_SGX
 +	SSL* out_s = s;
 +
-+	sgx_spin_lock(&ssl_hardening_map_lock);
-+	SSL* in_s = (SSL*) hashmapGet(ssl_hardening_map, (unsigned long)out_s);
-+	sgx_spin_unlock(&ssl_hardening_map_lock);
++	hashmap* m = get_ssl_hardening();
++	SSL* in_s = (SSL*) hashmapGet(m, (unsigned long)out_s);
 +
 +	SSL_copy_fields_to_in_struct(in_s, out_s);
 +	int ret = SSL_shutdown(in_s);
@@ -710,7 +730,7 @@
  SSL_shutdown(SSL *s)
  {
  	/*
-@@ -1037,6 +1583,24 @@
+@@ -1037,6 +1603,23 @@
  }
  
  long
@@ -719,9 +739,8 @@
 +#ifdef COMPILE_WITH_INTEL_SGX
 +	SSL* out_s = s;
 +
-+	sgx_spin_lock(&ssl_hardening_map_lock);
-+	SSL* in_s = (SSL*) hashmapGet(ssl_hardening_map, (unsigned long)out_s);
-+	sgx_spin_unlock(&ssl_hardening_map_lock);
++	hashmap* m = get_ssl_hardening();
++	SSL* in_s = (SSL*) hashmapGet(m, (unsigned long)out_s);
 +
 +	SSL_copy_fields_to_in_struct(in_s, out_s);
 +	long ret = SSL_ctrl(in_s, cmd, larg, parg);
@@ -735,7 +754,7 @@
  SSL_ctrl(SSL *s, int cmd, long larg, void *parg)
  {
  	long	l;
-@@ -1112,6 +1676,10 @@
+@@ -1112,6 +1695,10 @@
  	return (ctx->sessions);
  }
  
@@ -746,7 +765,7 @@
  long
  SSL_CTX_ctrl(SSL_CTX *ctx, int cmd, long larg, void *parg)
  {
-@@ -1191,6 +1759,67 @@
+@@ -1191,6 +1778,67 @@
  	}
  }
  
@@ -814,7 +833,7 @@
  long
  SSL_CTX_callback_ctrl(SSL_CTX *ctx, int cmd, void (*fp)(void))
  {
-@@ -1236,6 +1865,23 @@
+@@ -1236,6 +1884,22 @@
   * preference.
   */
  STACK_OF(SSL_CIPHER) *
@@ -823,9 +842,8 @@
 +#ifdef COMPILE_WITH_INTEL_SGX
 +	const SSL* out_s = s;
 +
-+	sgx_spin_lock(&ssl_hardening_map_lock);
-+	SSL* in_s = (SSL*) hashmapGet(ssl_hardening_map, (unsigned long)out_s);
-+	sgx_spin_unlock(&ssl_hardening_map_lock);
++	hashmap* m = get_ssl_hardening();
++	SSL* in_s = (SSL*) hashmapGet(m, (unsigned long)out_s);
 +
 +	SSL_copy_fields_to_in_struct(in_s, out_s);
 +	STACK_OF(SSL_CIPHER) *ret = SSL_get_ciphers(in_s);
@@ -838,7 +856,7 @@
  SSL_get_ciphers(const SSL *s)
  {
  	if (s != NULL) {
-@@ -1286,6 +1932,10 @@
+@@ -1286,6 +1950,10 @@
  
  /* Specify the ciphers to be used by default by the SSL_CTX. */
  int
@@ -849,7 +867,7 @@
  SSL_CTX_set_cipher_list(SSL_CTX *ctx, const char *str)
  {
  	STACK_OF(SSL_CIPHER)	*sk;
-@@ -1312,6 +1962,24 @@
+@@ -1312,6 +1980,23 @@
  
  /* Specify the ciphers to be used by the SSL. */
  int
@@ -858,9 +876,8 @@
 +	int ret;
 +#ifdef COMPILE_WITH_INTEL_SGX
 +	SSL* out_s = s;
-+	sgx_spin_lock(&ssl_hardening_map_lock);
-+	SSL* in_s = (SSL*) hashmapGet(ssl_hardening_map, (unsigned long)out_s);
-+	sgx_spin_unlock(&ssl_hardening_map_lock);
++	hashmap* m = get_ssl_hardening();
++	SSL* in_s = (SSL*) hashmapGet(m, (unsigned long)out_s);
 +
 +	SSL_copy_fields_to_in_struct(in_s, out_s);
 +	ret = SSL_set_cipher_list(in_s, str);
@@ -874,7 +891,7 @@
  SSL_set_cipher_list(SSL *s, const char *str)
  {
  	STACK_OF(SSL_CIPHER)	*sk;
-@@ -1488,6 +2156,28 @@
+@@ -1488,6 +2173,27 @@
   * Return a servername extension value if provided in Client Hello, or NULL.
   * So far, only host_name types are defined (RFC 3546).
   */
@@ -882,9 +899,8 @@
 +#ifdef COMPILE_WITH_INTEL_SGX
 +	SSL* out_s = (SSL*)s;
 +
-+	sgx_spin_lock(&ssl_hardening_map_lock);
-+	SSL* in_s = (SSL*) hashmapGet(ssl_hardening_map, (unsigned long)out_s);
-+	sgx_spin_unlock(&ssl_hardening_map_lock);
++	hashmap* m = get_ssl_hardening();
++	SSL* in_s = (SSL*) hashmapGet(m, (unsigned long)out_s);
 +
 +	SSL_copy_fields_to_in_struct(in_s, out_s);
 +	const char* sn = SSL_get_servername((const SSL*)in_s, type);
@@ -903,7 +919,7 @@
  const char *
  SSL_get_servername(const SSL *s, const int type)
  {
-@@ -1541,6 +2231,13 @@
+@@ -1541,6 +2247,13 @@
   * OPENSSL_NPN_NO_OVERLAP if the fallback case was reached.
   */
  int
@@ -917,7 +933,7 @@
  SSL_select_next_proto(unsigned char **out, unsigned char *outlen,
      const unsigned char *server, unsigned int server_len,
      const unsigned char *client, unsigned int client_len)
-@@ -1612,6 +2309,10 @@
+@@ -1612,6 +2325,10 @@
   * The callback should return SSL_TLSEXT_ERR_OK if it wishes to advertise.
   * Otherwise, no such extension will be included in the ServerHello.
   */
@@ -928,7 +944,7 @@
  void
  SSL_CTX_set_next_protos_advertised_cb(SSL_CTX *ctx, int (*cb) (SSL *ssl,
      const unsigned char **out, unsigned int *outlen, void *arg), void *arg)
-@@ -1631,6 +2332,36 @@
+@@ -1631,6 +2348,35 @@
   * The client must select a protocol. It is fatal to the connection if this
   * callback returns a value other than SSL_TLSEXT_ERR_OK.
   */
@@ -940,9 +956,8 @@
 +	if (ssl_ctx_set_next_proto_select_cb_address) {
 +		SSL* in_s = s;
 +
-+		sgx_spin_lock(&ssl_hardening_map_lock);
-+		SSL* out_s = (SSL*) hashmapGet(ssl_hardening_map, (unsigned long)in_s);
-+		sgx_spin_unlock(&ssl_hardening_map_lock);
++		hashmap* m = get_ssl_hardening();
++		SSL* out_s = (SSL*) hashmapGet(m, (unsigned long)in_s);
 +
 +		SSL_copy_fields_to_out_struct(in_s, out_s);
 +		retval = ssl_ctx_set_next_proto_select_async_cb_wrapper(s, out, outlen, in, inlen, arg, ssl_ctx_set_next_proto_select_cb_address);
@@ -965,7 +980,7 @@
  void
  SSL_CTX_set_next_proto_select_cb(SSL_CTX *ctx, int (*cb) (SSL *s,
      unsigned char **out, unsigned char *outlen, const unsigned char *in,
-@@ -1664,6 +2395,24 @@
+@@ -1664,6 +2410,23 @@
   * 8-bit length-prefixed strings). Returns 0 on success.
   */
  int
@@ -974,9 +989,8 @@
 +#ifdef COMPILE_WITH_INTEL_SGX
 +    SSL* out_s = (SSL*)ssl;
 +
-+	sgx_spin_lock(&ssl_hardening_map_lock);
-+	SSL* in_s = (SSL*) hashmapGet(ssl_hardening_map, (unsigned long)out_s);
-+	sgx_spin_unlock(&ssl_hardening_map_lock);
++	 hashmap* m = get_ssl_hardening();
++	 SSL* in_s = (SSL*) hashmapGet(m, (unsigned long)out_s);
 +
 +	SSL_copy_fields_to_in_struct(in_s, out_s);
 +	retval = SSL_set_alpn_protos(in_s, protos, protos_len);
@@ -990,7 +1004,7 @@
  SSL_set_alpn_protos(SSL *ssl, const unsigned char* protos,
      unsigned int protos_len)
  {
-@@ -1682,6 +2431,14 @@
+@@ -1682,6 +2445,14 @@
   * client's list of offered protocols.
   */
  void
@@ -1005,7 +1019,7 @@
  SSL_CTX_set_alpn_select_cb(SSL_CTX* ctx,
      int (*cb) (SSL *ssl, const unsigned char **out, unsigned char *outlen,
      const unsigned char *in, unsigned int inlen, void *arg), void *arg)
-@@ -1762,6 +2519,10 @@
+@@ -1762,6 +2533,10 @@
  IMPLEMENT_LHASH_COMP_FN(ssl_session, SSL_SESSION)
  
  SSL_CTX *
@@ -1016,7 +1030,7 @@
  SSL_CTX_new(const SSL_METHOD *meth)
  {
  	SSL_CTX	*ret = NULL;
-@@ -1909,6 +2670,10 @@
+@@ -1909,6 +2684,10 @@
  }
  
  void
@@ -1027,7 +1041,7 @@
  SSL_CTX_free(SSL_CTX *a)
  {
  	int	i;
-@@ -1968,6 +2733,29 @@
+@@ -1968,6 +2747,29 @@
  	free(a);
  }
  
@@ -1057,7 +1071,7 @@
  void
  SSL_CTX_set_default_passwd_cb(SSL_CTX *ctx, pem_password_cb *cb)
  {
-@@ -1980,6 +2768,26 @@
+@@ -1980,6 +2782,26 @@
  	ctx->default_passwd_callback_userdata = u;
  }
  
@@ -1084,7 +1098,7 @@
  void
  SSL_CTX_set_cert_verify_callback(SSL_CTX *ctx, int (*cb)(X509_STORE_CTX *,
      void *), void *arg)
-@@ -1988,6 +2796,28 @@
+@@ -1988,6 +2810,28 @@
  	ctx->app_verify_arg = arg;
  }
  
@@ -1113,7 +1127,7 @@
  void
  SSL_CTX_set_verify(SSL_CTX *ctx, int mode, int (*cb)(int, X509_STORE_CTX *))
  {
-@@ -1996,6 +2826,10 @@
+@@ -1996,6 +2840,10 @@
  }
  
  void
@@ -1124,7 +1138,7 @@
  SSL_CTX_set_verify_depth(SSL_CTX *ctx, int depth)
  {
  	X509_VERIFY_PARAM_set_depth(ctx->param, depth);
-@@ -2292,6 +3126,33 @@
+@@ -2292,6 +3140,33 @@
  	return (dhp);
  }
  
@@ -1158,7 +1172,7 @@
  void
  ssl_update_cache(SSL *s, int mode)
  {
-@@ -2309,7 +3170,9 @@
+@@ -2309,7 +3184,9 @@
  	    || SSL_CTX_add_session(s->session_ctx, s->session))
  	    && (s->session_ctx->new_session_cb != NULL)) {
  		CRYPTO_add(&s->session->references, 1, CRYPTO_LOCK_SSL_SESSION);
@@ -1169,7 +1183,7 @@
  			SSL_SESSION_free(s->session);
  	}
  
-@@ -2357,6 +3220,19 @@
+@@ -2357,6 +3234,18 @@
  }
  
  int
@@ -1177,9 +1191,8 @@
 +#ifdef COMPILE_WITH_INTEL_SGX
 +	const SSL* out_s = s;
 +
-+	sgx_spin_lock(&ssl_hardening_map_lock);
-+	SSL* in_s = (SSL*) hashmapGet(ssl_hardening_map, (unsigned long)out_s);
-+	sgx_spin_unlock(&ssl_hardening_map_lock);
++	hashmap* m = get_ssl_hardening();
++	SSL* in_s = (SSL*) hashmapGet(m, (unsigned long)out_s);
 +
 +	s = in_s;
 +#endif
@@ -1189,7 +1202,7 @@
  SSL_get_error(const SSL *s, int i)
  {
  	int		 reason;
-@@ -2435,6 +3311,19 @@
+@@ -2435,6 +3324,18 @@
  }
  
  int
@@ -1197,9 +1210,8 @@
 +#ifdef COMPILE_WITH_INTEL_SGX
 +	const SSL* out_s = s;
 +
-+	sgx_spin_lock(&ssl_hardening_map_lock);
-+	SSL* in_s = (SSL*) hashmapGet(ssl_hardening_map, (unsigned long)out_s);
-+	sgx_spin_unlock(&ssl_hardening_map_lock);
++	hashmap* m = get_ssl_hardening();
++	SSL* in_s = (SSL*) hashmapGet(m, (unsigned long)out_s);
 +
 +	s = in_s;
 +#endif
@@ -1209,7 +1221,7 @@
  SSL_do_handshake(SSL *s)
  {
  	int	ret = 1;
-@@ -2457,6 +3346,20 @@
+@@ -2457,6 +3358,19 @@
   * one of these calls will reset it
   */
  void
@@ -1218,9 +1230,8 @@
 +#ifdef COMPILE_WITH_INTEL_SGX
 +	const SSL* out_s = s;
 +
-+	sgx_spin_lock(&ssl_hardening_map_lock);
-+	SSL* in_s = (SSL*) hashmapGet(ssl_hardening_map, (unsigned long)out_s);
-+	sgx_spin_unlock(&ssl_hardening_map_lock);
++	hashmap* m = get_ssl_hardening();
++	SSL* in_s = (SSL*) hashmapGet(m, (unsigned long)out_s);
 +
 +	s = in_s;
 +#endif
@@ -1230,7 +1241,7 @@
  SSL_set_accept_state(SSL *s)
  {
  	s->server = 1;
-@@ -2470,6 +3373,19 @@
+@@ -2470,6 +3384,18 @@
  }
  
  void
@@ -1238,9 +1249,8 @@
 +#ifdef COMPILE_WITH_INTEL_SGX
 +	const SSL* out_s = s;
 +
-+	sgx_spin_lock(&ssl_hardening_map_lock);
-+	SSL* in_s = (SSL*) hashmapGet(ssl_hardening_map, (unsigned long)out_s);
-+	sgx_spin_unlock(&ssl_hardening_map_lock);
++	hashmap* m = get_ssl_hardening();
++	SSL* in_s = (SSL*) hashmapGet(m, (unsigned long)out_s);
 +
 +	s = in_s;
 +#endif
@@ -1250,7 +1260,7 @@
  SSL_set_connect_state(SSL *s)
  {
  	s->server = 0;
-@@ -2523,6 +3439,11 @@
+@@ -2523,6 +3449,11 @@
  	}
  }
  
@@ -1262,7 +1272,7 @@
  const char *
  SSL_get_version(const SSL *s)
  {
-@@ -2556,6 +3477,46 @@
+@@ -2556,6 +3487,45 @@
  	return (0);
  }
  
@@ -1283,9 +1293,8 @@
 +#ifdef COMPILE_WITH_INTEL_SGX
 +	SSL* in_s = ssl;
 +
-+	sgx_spin_lock(&ssl_hardening_map_lock);
-+	SSL* out_s = (SSL*) hashmapGet(ssl_hardening_map, (unsigned long)in_s);
-+	sgx_spin_unlock(&ssl_hardening_map_lock);
++	hashmap* m = get_ssl_hardening();
++	SSL* out_s = (SSL*) hashmapGet(m, (unsigned long)in_s);
 +
 +	SSL_copy_fields_to_out_struct(in_s, out_s);
 +	SSL_set_info_cb_addr = (void (*)(const SSL*, int, int))cb;
@@ -1309,7 +1318,7 @@
  SSL *
  SSL_dup(SSL *s)
  {
-@@ -2711,6 +3672,20 @@
+@@ -2711,6 +3681,19 @@
  
  /* Fix this function so that it takes an optional type parameter */
  X509 *
@@ -1317,9 +1326,8 @@
 +#ifdef COMPILE_WITH_INTEL_SGX
 +	const SSL* out_s = s;
 +
-+	sgx_spin_lock(&ssl_hardening_map_lock);
-+	const SSL* in_s = (const SSL*) hashmapGet(ssl_hardening_map, (unsigned long)out_s);
-+	sgx_spin_unlock(&ssl_hardening_map_lock);
++	hashmap* m = get_ssl_hardening();
++	SSL* in_s = (SSL*) hashmapGet(m, (unsigned long)out_s);
 +
 +	return SSL_get_certificate(in_s);
 +#else
@@ -1330,7 +1338,7 @@
  SSL_get_certificate(const SSL *s)
  {
  	if (s->cert != NULL)
-@@ -2720,6 +3695,22 @@
+@@ -2720,6 +3703,21 @@
  }
  
  /* Fix this function so that it takes an optional type parameter */
@@ -1339,9 +1347,8 @@
 +#ifdef COMPILE_WITH_INTEL_SGX
 +	const SSL* out_s = s;
 +
-+	sgx_spin_lock(&ssl_hardening_map_lock);
-+	SSL* in_s = (SSL*) hashmapGet(ssl_hardening_map, (unsigned long)out_s);
-+	sgx_spin_unlock(&ssl_hardening_map_lock);
++	hashmap* m = get_ssl_hardening();
++	SSL* in_s = (SSL*) hashmapGet(m, (unsigned long)out_s);
 +
 +	EVP_PKEY* enclave_pkey = SSL_get_privatekey(in_s);
 +	memcpy(pkey, enclave_pkey, sizeof(*pkey));
@@ -1353,7 +1360,7 @@
  EVP_PKEY *
  SSL_get_privatekey(SSL *s)
  {
-@@ -2729,6 +3720,11 @@
+@@ -2729,6 +3727,11 @@
  		return (NULL);
  }
  
@@ -1365,7 +1372,7 @@
  const SSL_CIPHER *
  SSL_get_current_cipher(const SSL *s)
  {
-@@ -2809,6 +3805,10 @@
+@@ -2809,6 +3812,10 @@
  }
  
  void
@@ -1376,7 +1383,7 @@
  SSL_set_quiet_shutdown(SSL *s, int mode)
  {
  	s->quiet_shutdown = mode;
-@@ -2821,12 +3821,45 @@
+@@ -2821,12 +3828,43 @@
  }
  
  void
@@ -1384,9 +1391,8 @@
 +#ifdef COMPILE_WITH_INTEL_SGX
 +	SSL* out_s = s;
 +
-+	sgx_spin_lock(&ssl_hardening_map_lock);
-+	SSL* in_s = (SSL*) hashmapGet(ssl_hardening_map, (unsigned long)out_s);
-+	sgx_spin_unlock(&ssl_hardening_map_lock);
++	hashmap* m = get_ssl_hardening();
++	SSL* in_s = (SSL*) hashmapGet(m, (unsigned long)out_s);
 +
 +	SSL_copy_fields_to_in_struct(in_s, out_s);
 +	SSL_set_shutdown(in_s, mode);
@@ -1406,9 +1412,8 @@
 +#ifdef COMPILE_WITH_INTEL_SGX
 +	SSL* out_s = (SSL*)s;
 +
-+	sgx_spin_lock(&ssl_hardening_map_lock);
-+	SSL* in_s = (SSL*) hashmapGet(ssl_hardening_map, (unsigned long)out_s);
-+	sgx_spin_unlock(&ssl_hardening_map_lock);
++	hashmap* m = get_ssl_hardening();
++	SSL* in_s = (SSL*) hashmapGet(m, (unsigned long)out_s);
 +
 +	SSL_copy_fields_to_in_struct(in_s, out_s);
 +	int ret = SSL_get_shutdown((const SSL*)in_s);
@@ -1422,7 +1427,7 @@
  SSL_get_shutdown(const SSL *s)
  {
  	return (s->shutdown);
-@@ -2839,12 +3872,35 @@
+@@ -2839,12 +3877,34 @@
  }
  
  SSL_CTX *
@@ -1431,9 +1436,8 @@
 +#ifdef COMPILE_WITH_INTEL_SGX
 +	SSL* out_s = (SSL*)ssl;
 +
-+	sgx_spin_lock(&ssl_hardening_map_lock);
-+	SSL* in_s = (SSL*) hashmapGet(ssl_hardening_map, (unsigned long)out_s);
-+	sgx_spin_unlock(&ssl_hardening_map_lock);
++	hashmap* m = get_ssl_hardening();
++	SSL* in_s = (SSL*) hashmapGet(m, (unsigned long)out_s);
 +
 +	SSL_copy_fields_to_in_struct(in_s, out_s);
 +	SSL_CTX* ret = SSL_get_SSL_CTX((const SSL*)in_s);
@@ -1458,7 +1462,7 @@
  SSL_set_SSL_CTX(SSL *ssl, SSL_CTX* ctx)
  {
  	if (ssl->ctx == ctx)
-@@ -2861,6 +3917,10 @@
+@@ -2861,6 +3921,10 @@
  }
  
  int
@@ -1469,7 +1473,7 @@
  SSL_CTX_set_default_verify_paths(SSL_CTX *ctx)
  {
  	return (X509_STORE_set_default_paths(ctx->cert_store));
-@@ -2879,17 +3939,24 @@
+@@ -2879,17 +3943,23 @@
  	return (X509_STORE_load_mem(ctx->cert_store, buf, len));
  }
  
@@ -1486,10 +1490,10 @@
 -void (*SSL_get_info_callback(const SSL *ssl))(const SSL *ssl, int type, int val)
 -{
 -	return (ssl->info_callback);
-+	sgx_spin_lock(&ssl_hardening_map_lock);
-+	SSL* in_s = (SSL*) hashmapGet(ssl_hardening_map, (unsigned long)out_s);
-+	sgx_spin_unlock(&ssl_hardening_map_lock);
-+
+-}
++	hashmap* m = get_ssl_hardening();
++	SSL* in_s = (SSL*) hashmapGet(m, (unsigned long)out_s);
+ 
 +	SSL_copy_fields_to_in_struct(in_s, (const SSL*)out_s);
 +	int ret = SSL_state(in_s);
 +	SSL_copy_fields_to_out_struct((const SSL*)in_s, out_s);
@@ -1497,12 +1501,11 @@
 +#else
 +	return SSL_state(ssl);
 +#endif
- }
--
++}
  int
  SSL_state(const SSL *ssl)
  {
-@@ -2903,17 +3970,94 @@
+@@ -2903,17 +3973,92 @@
  }
  
  void
@@ -1511,9 +1514,8 @@
 +#ifdef COMPILE_WITH_INTEL_SGX
 +	SSL* out_s = ssl;
 +
-+	sgx_spin_lock(&ssl_hardening_map_lock);
-+	SSL* in_s = (SSL*) hashmapGet(ssl_hardening_map, (unsigned long)out_s);
-+	sgx_spin_unlock(&ssl_hardening_map_lock);
++	hashmap* m = get_ssl_hardening();
++	SSL* in_s = (SSL*) hashmapGet(m, (unsigned long)out_s);
 +
 +	SSL_copy_fields_to_in_struct(in_s, out_s);
 +	SSL_set_verify_result(in_s, arg);
@@ -1534,9 +1536,8 @@
 +#ifdef COMPILE_WITH_INTEL_SGX
 +	SSL* out_s = (SSL*)ssl;
 +
-+	sgx_spin_lock(&ssl_hardening_map_lock);
-+	SSL* in_s = (SSL*) hashmapGet(ssl_hardening_map, (unsigned long)out_s);
-+	sgx_spin_unlock(&ssl_hardening_map_lock);
++	hashmap* m = get_ssl_hardening();
++	SSL* in_s = (SSL*) hashmapGet(m, (unsigned long)out_s);
 +
 +	SSL_copy_fields_to_in_struct(in_s, out_s);
 +	long ret = SSL_get_verify_result((const SSL*)in_s);
@@ -1597,7 +1598,7 @@
  int
  SSL_get_ex_new_index(long argl, void *argp, CRYPTO_EX_new *new_func,
      CRYPTO_EX_dup *dup_func, CRYPTO_EX_free *free_func)
-@@ -2935,6 +4079,11 @@
+@@ -2935,6 +4080,11 @@
  }
  
  int
@@ -1609,7 +1610,7 @@
  SSL_CTX_get_ex_new_index(long argl, void *argp, CRYPTO_EX_new *new_func,
      CRYPTO_EX_dup *dup_func, CRYPTO_EX_free *free_func)
  {
-@@ -2943,12 +4092,20 @@
+@@ -2943,12 +4093,20 @@
  }
  
  int
@@ -1630,7 +1631,7 @@
  SSL_CTX_get_ex_data(const SSL_CTX *s, int idx)
  {
  	return (CRYPTO_get_ex_data(&s->ex_data, idx));
-@@ -2961,6 +4118,10 @@
+@@ -2961,6 +4119,10 @@
  }
  
  X509_STORE *
@@ -1641,7 +1642,7 @@
  SSL_CTX_get_cert_store(const SSL_CTX *ctx)
  {
  	return (ctx->cert_store);
-@@ -2980,6 +4141,41 @@
+@@ -2980,6 +4142,40 @@
  	return (s->rwstate);
  }
  
@@ -1650,9 +1651,8 @@
 +	SSL_SESSION* ret;
 +	SSL* in_s = ssl;
 +
-+	sgx_spin_lock(&ssl_hardening_map_lock);
-+	SSL* out_s = (SSL*) hashmapGet(ssl_hardening_map, (unsigned long)in_s);
-+	sgx_spin_unlock(&ssl_hardening_map_lock);
++	hashmap* m = get_ssl_hardening();
++	SSL* out_s = (SSL*) hashmapGet(m, (unsigned long)in_s);
 +
 +	SSL_copy_fields_to_out_struct(in_s, out_s);
 +	ocall_get_session_cb((void*)&ret, out_s, data, len, copy, cb);
@@ -1683,7 +1683,7 @@
  void
  SSL_CTX_set_tmp_rsa_callback(SSL_CTX *ctx, RSA *(*cb)(SSL *ssl, int is_export,
      int keylength))
-@@ -2994,6 +4190,40 @@
+@@ -2994,6 +4190,39 @@
  	SSL_callback_ctrl(ssl, SSL_CTRL_SET_TMP_RSA_CB,(void (*)(void))cb);
  }
  
@@ -1695,9 +1695,8 @@
 +	if (SSL_CTX_set_tmp_dh_cb_address) {
 +		SSL* in_s = ssl;
 +
-+		sgx_spin_lock(&ssl_hardening_map_lock);
-+		SSL* out_s = (SSL*) hashmapGet(ssl_hardening_map, (unsigned long)in_s);
-+		sgx_spin_unlock(&ssl_hardening_map_lock);
++		hashmap* m = get_ssl_hardening();
++		SSL* out_s = (SSL*) hashmapGet(m, (unsigned long)in_s);
 +
 +		SSL_copy_fields_to_out_struct(in_s, out_s);
 +		retval = ocall_SSL_CTX_set_tmp_dh_cb_wrapper(out_s, is_export, keylength, (void*)SSL_CTX_set_tmp_dh_cb_address);

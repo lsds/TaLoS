@@ -1,6 +1,6 @@
---- ./crypto/bio/bio_lib.c	2017-03-08 11:15:50.545468121 +0000
-+++ ../talos/./crypto/bio/bio_lib.c	2017-03-08 11:26:40.864374729 +0000
-@@ -64,24 +64,229 @@
+--- ./crypto/bio/bio_lib.c	2017-11-28 10:46:51.992404595 +0000
++++ ../talos/./crypto/bio/bio_lib.c	2017-11-28 12:33:50.967187341 +0000
+@@ -64,24 +64,241 @@
  #include <openssl/err.h>
  #include <openssl/stack.h>
  
@@ -23,15 +23,37 @@
 +	BIO_METHOD* fake_methods;
 +};
 +
-+hashmap* bio_methods_map = NULL;
-+sgx_spinlock_t bio_methods_map_lock = 0;
++static int bio_methods_initialized = 0;
++static hashmap* bio_methods_map = NULL;
++sgx_spinlock_t bio_methods_map_lock = SGX_SPINLOCK_INITIALIZER;
++
++hashmap* get_bio_methods_map() {
++	int expected = 0;
++	int desired = 1;
++	if (__atomic_compare_exchange_n(&bio_methods_initialized, &expected, desired, 0, __ATOMIC_RELAXED, __ATOMIC_RELAXED)) {
++		bio_methods_map = hashmapCreate(23);
++	}
++	while (!bio_methods_map) {
++		// burn cycles
++	}
++
++	hashmap* m = (hashmap*)hashmapGet(bio_methods_map, (unsigned long)sgx_thread_self());
++	if (!m) {
++		m = hashmapCreate(251);
++		sgx_spin_lock(&bio_methods_map_lock);
++		//	need a lock on the insert, just to be safe. However each thread will acquire the lock only once during its execution
++		hashmapInsert(bio_methods_map, (const void*)m, (unsigned long)sgx_thread_self());
++		sgx_spin_unlock(&bio_methods_map_lock);
++	}
++
++	return m;
++}
 +
 +int bio_fake_bwrite(BIO *b, const char *buf, int len) {
 +	int retval = 0;
 +
-+	sgx_spin_lock(&bio_methods_map_lock);
-+	struct bio_methods_sgx_cb* sgx_cb_methods = (struct bio_methods_sgx_cb*)hashmapGet(bio_methods_map, (unsigned long)b);
-+	sgx_spin_unlock(&bio_methods_map_lock);
++	hashmap* biomethods = get_bio_methods_map();
++	struct bio_methods_sgx_cb* sgx_cb_methods = (struct bio_methods_sgx_cb*)hashmapGet(biomethods, (unsigned long)b);
 +
 +	if (sgx_cb_methods) {
 +		retval = execute_async_bio_write(b, (char*)buf, len, (void*)sgx_cb_methods->real_methods->bwrite);
@@ -43,9 +65,8 @@
 +int bio_fake_bread(BIO *b, char *buf, int len) {
 +	int retval = 0;
 +
-+	sgx_spin_lock(&bio_methods_map_lock);
-+	struct bio_methods_sgx_cb* sgx_cb_methods = (struct bio_methods_sgx_cb*)hashmapGet(bio_methods_map, (unsigned long)b);
-+	sgx_spin_unlock(&bio_methods_map_lock);
++	hashmap* biomethods = get_bio_methods_map();
++	struct bio_methods_sgx_cb* sgx_cb_methods = (struct bio_methods_sgx_cb*)hashmapGet(biomethods, (unsigned long)b);
 +
 +	if (sgx_cb_methods) {
 +		retval = execute_async_bio_read(b, buf, len, (void*)sgx_cb_methods->real_methods->bread);
@@ -72,9 +93,8 @@
 +	}
 +#endif
 +
-+	sgx_spin_lock(&bio_methods_map_lock);
-+	struct bio_methods_sgx_cb* sgx_cb_methods = (struct bio_methods_sgx_cb*)hashmapGet(bio_methods_map, (unsigned long)b);
-+	sgx_spin_unlock(&bio_methods_map_lock);
++	hashmap* biomethods = get_bio_methods_map();
++	struct bio_methods_sgx_cb* sgx_cb_methods = (struct bio_methods_sgx_cb*)hashmapGet(biomethods, (unsigned long)b);
 +
 +	if (sgx_cb_methods) {
 +		retval = execute_async_bio_ctrl(b, cmd, argl, arg, (void*)sgx_cb_methods->real_methods->ctrl);
@@ -86,9 +106,8 @@
 +int bio_fake_create(BIO *b) {
 +	int retval = 0;
 +
-+	sgx_spin_lock(&bio_methods_map_lock);
-+	struct bio_methods_sgx_cb* sgx_cb_methods = (struct bio_methods_sgx_cb*)hashmapGet(bio_methods_map, (unsigned long)b);
-+	sgx_spin_unlock(&bio_methods_map_lock);
++	hashmap* biomethods = get_bio_methods_map();
++	struct bio_methods_sgx_cb* sgx_cb_methods = (struct bio_methods_sgx_cb*)hashmapGet(biomethods, (unsigned long)b);
 +
 +	if (sgx_cb_methods && sgx_cb_methods->real_methods->create) {
 +		sgx_status_t ret = ocall_bio_create(&retval, b, (void*)sgx_cb_methods->real_methods->create);
@@ -103,9 +122,8 @@
 +int bio_fake_destroy(BIO *b) {
 +	int retval = 0;
 +
-+	sgx_spin_lock(&bio_methods_map_lock);
-+	struct bio_methods_sgx_cb* sgx_cb_methods = (struct bio_methods_sgx_cb*)hashmapGet(bio_methods_map, (unsigned long)b);
-+	sgx_spin_unlock(&bio_methods_map_lock);
++	hashmap* biomethods = get_bio_methods_map();
++	struct bio_methods_sgx_cb* sgx_cb_methods = (struct bio_methods_sgx_cb*)hashmapGet(biomethods, (unsigned long)b);
 +
 +	if (sgx_cb_methods && sgx_cb_methods->real_methods->destroy) {
 +		retval = execute_async_bio_destroy(b, (void*)sgx_cb_methods->real_methods->destroy);
@@ -150,21 +168,15 @@
 +	// the BIO is allocated from the bio pool
 +	ret = execute_bio_ocall_malloc(sizeof(*ret));
 +
++	hashmap* biomethods = NULL;
 +	if (method) {
-+		sgx_spin_lock(&bio_methods_map_lock);
-+		if (!bio_methods_map) {
-+			bio_methods_map = hashmapCreate(0);
-+		}
-+		hashmapInsert(bio_methods_map, (const void*)sgx_cb_methods, (unsigned long)ret);
-+		sgx_spin_unlock(&bio_methods_map_lock);
++		biomethods = get_bio_methods_map();
++		hashmapInsert(biomethods, (const void*)sgx_cb_methods, (unsigned long)ret);
 +	}
 +
 +	if (!BIO_set_from_ecall(ret, method)) {
 +		if (method) {
-+			sgx_spin_lock(&bio_methods_map_lock);
-+			hashmapRemove(bio_methods_map, (unsigned long)ret);
-+			sgx_spin_unlock(&bio_methods_map_lock);
-+
++			hashmapRemove(biomethods, (unsigned long)ret);
 +			free(sgx_cb_methods->fake_methods);
 +			free(sgx_cb_methods);
 +		}
@@ -230,7 +242,7 @@
  BIO_set(BIO *bio, BIO_METHOD *method)
  {
  	bio->method = method;
-@@ -108,6 +313,10 @@
+@@ -108,6 +325,10 @@
  	return (1);
  }
  
@@ -241,20 +253,14 @@
  int
  BIO_free(BIO *a)
  {
-@@ -127,7 +336,27 @@
+@@ -127,7 +348,21 @@
  
  	if (a->method != NULL && a->method->destroy != NULL)
  		a->method->destroy(a);
 +
 +#ifdef COMPILE_WITH_INTEL_SGX
-+
-+	sgx_spin_lock(&bio_methods_map_lock);
-+	if (!bio_methods_map) {
-+		bio_methods_map = hashmapCreate(0);
-+	}
-+	struct bio_methods_sgx_cb* sgx_cb_methods = hashmapRemove(bio_methods_map, (unsigned long)a);
-+	sgx_spin_unlock(&bio_methods_map_lock);
-+
++	hashmap* biomethods = get_bio_methods_map();
++	struct bio_methods_sgx_cb* sgx_cb_methods = hashmapRemove(biomethods, (unsigned long)a);
 +	if (sgx_cb_methods) {
 +		free(sgx_cb_methods->fake_methods);
 +		free(sgx_cb_methods);
@@ -269,7 +275,7 @@
  	return (1);
  }
  
-@@ -335,12 +564,30 @@
+@@ -335,12 +570,30 @@
  }
  
  long
@@ -303,7 +309,7 @@
  }
  
  char *
-@@ -355,6 +602,10 @@
+@@ -355,6 +608,10 @@
  }
  
  long

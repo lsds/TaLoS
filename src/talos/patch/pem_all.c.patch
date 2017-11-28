@@ -1,5 +1,5 @@
---- ./crypto/pem/pem_all.c	2017-03-08 11:15:50.665465696 +0000
-+++ ../talos/./crypto/pem/pem_all.c	2017-03-08 11:13:57.395753540 +0000
+--- ./crypto/pem/pem_all.c	2017-11-28 10:46:51.996404519 +0000
++++ ../talos/./crypto/pem/pem_all.c	2017-07-17 11:08:32.257409376 +0100
 @@ -129,6 +129,10 @@
  #include <openssl/rsa.h>
  #endif

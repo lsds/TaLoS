@@ -1,5 +1,5 @@
---- ./crypto/compat/getentropy_linux.c	2017-03-08 11:15:50.573467556 +0000
-+++ ../talos/./crypto/compat/getentropy_linux.c	2017-03-08 11:13:57.275755962 +0000
+--- ./crypto/compat/getentropy_linux.c	2017-11-28 10:46:51.992404595 +0000
++++ ../talos/./crypto/compat/getentropy_linux.c	2017-07-17 11:08:32.213410215 +0100
 @@ -20,528 +20,35 @@
   * http://www.openbsd.org/cgi-bin/man.cgi/OpenBSD-current/man2/getentropy.2
   */

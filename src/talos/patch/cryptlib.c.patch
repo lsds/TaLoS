@@ -1,5 +1,5 @@
---- ./crypto/cryptlib.c	2017-03-08 11:15:50.589467232 +0000
-+++ ../talos/./crypto/cryptlib.c	2017-03-08 11:13:57.295755558 +0000
+--- ./crypto/cryptlib.c	2017-11-28 10:46:51.996404519 +0000
++++ ../talos/./crypto/cryptlib.c	2017-07-17 11:08:32.261409300 +0100
 @@ -128,6 +128,17 @@
  #include <openssl/safestack.h>
  #include <openssl/sha.h>

@@ -1,5 +1,5 @@
---- ./crypto/conf/conf_sap.c	2017-03-08 11:15:50.585467312 +0000
-+++ ../talos/./crypto/conf/conf_sap.c	2017-03-08 11:13:57.291755639 +0000
+--- ./crypto/conf/conf_sap.c	2017-11-28 10:46:51.996404519 +0000
++++ ../talos/./crypto/conf/conf_sap.c	2017-07-17 11:08:32.213410215 +0100
 @@ -78,6 +78,10 @@
  static int openssl_configured = 0;
  

@@ -1,5 +1,5 @@
---- ./crypto/bio/bss_conn.c	2017-03-08 11:15:50.553467959 +0000
-+++ ../talos/./crypto/bio/bss_conn.c	2017-03-08 11:13:57.247756528 +0000
+--- ./crypto/bio/bss_conn.c	2017-11-28 10:46:51.992404595 +0000
++++ ../talos/./crypto/bio/bss_conn.c	2017-07-17 11:08:32.261409300 +0100
 @@ -72,6 +72,13 @@
  
  #define SOCKET_PROTOCOL IPPROTO_TCP

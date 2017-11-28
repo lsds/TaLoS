@@ -179,7 +179,6 @@ enclave {
 		public int ecall_SSL_select_next_proto([user_check] unsigned char **out, [user_check] unsigned char *outlen, [user_check] const unsigned char *in, unsigned int inlen, [user_check] const unsigned char *client, unsigned int client_len);
 		public int ecall_SSL_set_alpn_protos([user_check] SSL *ssl, [user_check] const unsigned char* protos, unsigned int protos_len);
 
-
 		/* Apache */
 		public char *ecall_SSLeay_version(int type);
 		public void ecall_ERR_load_crypto_strings(void);
@@ -232,6 +231,9 @@ enclave {
 
 		/* Asynchronous ecalls */
 		public void ecall_start_sgx_thread([user_check] void* eq, [user_check] void* oq, int tid, int appthreads, int sgxthreads, int lthread_tasks, int ncycles, [user_check] uint64_t* rdtsc_value);
+
+		/* simple server test */
+		public int ecall_SSL_CTX_use_certificate_file([user_check] SSL_CTX *ctx, [in, string] const char *file, int type);
 	};
 	
 	untrusted {

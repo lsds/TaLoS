@@ -1,5 +1,5 @@
---- ./crypto/err/err.c	2017-03-08 11:15:50.625466505 +0000
-+++ ../talos/./crypto/err/err.c	2017-03-08 11:13:57.351754429 +0000
+--- ./crypto/err/err.c	2017-11-28 10:46:51.996404519 +0000
++++ ../talos/./crypto/err/err.c	2017-07-17 11:08:32.229409910 +0100
 @@ -282,6 +282,12 @@
  static int int_thread_hash_references = 0;
  static int int_err_library_number = ERR_LIB_USER;

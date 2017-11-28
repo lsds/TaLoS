@@ -38,9 +38,10 @@
 enum transition_type {
 	ecall_ssl_read, ecall_ssl_accept,
 	ecall_ssl_new, ecall_ssl_free, ecall_ssl_ctrl, ecall_ssl_set_bio, ecall_ssl_shutdown, ecall_ssl_write,
+	ecall_ssl_set_connect_state, ecall_ssl_get_certificate, ecall_ssl_get_error,
 	ecall_bio_new, ecall_bio_ctrl,
 	ocall_malloc_t, ocall_free_t,
-    ocall_bio_ctrl_t, ocall_bio_destroy_t, ocall_bio_read_t, ocall_bio_write_t,
+	ocall_bio_ctrl_t, ocall_bio_destroy_t, ocall_bio_read_t, ocall_bio_write_t,
 	ocall_alpn_select_cb_t, ocall_set_tmp_dh_cb_t,
 	transition_undef_t
 };
@@ -98,6 +99,25 @@ struct cell_ssl_set_bio {
 // type ecall_ssl_shutdown
 struct cell_ssl_shutdown {
 	void* ssl;
+	int ret;
+};
+
+// type ecall_ssl_set_connect_state
+struct cell_ssl_set_connect_state {
+	void* ssl;
+	int ret;
+};
+
+// type ecall_ssl_get_certificate
+struct cell_ssl_get_certificate {
+	void* ssl;
+	void* ret;
+};
+
+// type ecall_ssl_get_error
+struct cell_ssl_get_error {
+	void* ssl;
+	int ret_code;
 	int ret;
 };
 

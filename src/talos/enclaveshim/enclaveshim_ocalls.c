@@ -44,23 +44,18 @@
 #include "sgx_eid.h"     /* sgx_enclave_id_t */
 #include "enclave_t.h"
 #include "sgx_trts.h"
+#include "sgx_thread.h"
 #include "sgx_spinlock.h"
 #include "ecall_queue.h"
 #include "lthread.h"
 #include "mempool.h"
+#include "hashmap.h"
 
 #ifndef BUFSIZ
 #define BUFSIZ 8192
 #endif
 
-
 #define USE_BIO_MEM_POOL
-
-#ifdef USE_BIO_MEM_POOL
-sgx_spinlock_t bio_mem_pool_lock = SGX_SPINLOCK_INITIALIZER;
-mempool* bio_mem_pool = NULL;
-#endif
-
 
 extern int sgx_is_within_enclave(const void*, size_t);
 
@@ -249,24 +244,44 @@ void execute_async_ocall_free(void* ptr) {
 }
 
 #ifdef USE_BIO_MEM_POOL
-void* bio_alloc_from_pool(size_t size) {
-	sgx_spin_lock(&bio_mem_pool_lock);
 
-	if (!bio_mem_pool) {
-		bio_mem_pool = malloc(sizeof(*bio_mem_pool));
-		*bio_mem_pool = create_pool(sizeof(BIO), 250);
+static int bio_mempool_initialized = 0;
+static hashmap* bio_mempool_map = NULL;
+sgx_spinlock_t bio_mempool_map_lock = SGX_SPINLOCK_INITIALIZER;
+
+static mempool* get_bio_mempool() {
+	int expected = 0;
+	int desired = 1;
+	if (__atomic_compare_exchange_n(&bio_mempool_initialized, &expected, desired, 0, __ATOMIC_RELAXED, __ATOMIC_RELAXED)) {
+		bio_mempool_map = hashmapCreate(23);
+	}
+	while (!bio_mempool_map) {
+		// burn cycles
 	}
 
-	void* ptr = pool_alloc(bio_mem_pool);
-	sgx_spin_unlock(&bio_mem_pool_lock);
+	mempool* pool = (mempool*)hashmapGet(bio_mempool_map, (unsigned long)sgx_thread_self());
+	if (!pool) {
+		pool = (mempool*)malloc(sizeof(*pool));
+		*pool = create_pool(sizeof(BIO), 250);
+		sgx_spin_lock(&bio_mempool_map_lock);
+		//	need a lock on the insert, just to be safe. However each thread will acquire the lock only once during its execution
+		hashmapInsert(bio_mempool_map, (const void*)pool, (unsigned long)sgx_thread_self());
+		sgx_spin_unlock(&bio_mempool_map_lock);
+	}
+
+	return pool;
+}
+
+void* bio_alloc_from_pool(size_t size) {
+	mempool* pool = get_bio_mempool();
+	void* ptr = pool_alloc(pool);
 	return ptr;
 }
 
 int bio_dealloc_from_pool(void* ptr) {
-	if (pool_address_is_valid(bio_mem_pool, ptr)) {
-		sgx_spin_lock(&bio_mem_pool_lock);
-		pool_dealloc(bio_mem_pool, ptr);
-		sgx_spin_unlock(&bio_mem_pool_lock);
+	mempool* pool = get_bio_mempool();
+	if (pool_address_is_valid(pool, ptr)) {
+		pool_dealloc(pool, ptr);
 		return 1;
 	} else {
 		return 0;
@@ -306,7 +321,7 @@ long execute_async_bio_ctrl(void* b, int cmd, long argl, void *arg, void* cb) {
 	//printf("task %p %s ocall_queue %p\n", lthread_current(), __func__, ocall_queue);
 
 	if (!ocall_queue || !lthread_current()) {
-		sgx_status_t ret = ocall_bio_ctrl(&retval, b, cmd, argl, arg, cb);
+		sgx_status_t ret = ocall_bio_ctrl(&retval, (BIO*)b, cmd, argl, arg, cb);
 		if (ret != SGX_SUCCESS) {
 			printf("%s:%s:%i ret = %i\n", __FILE__, __func__, __LINE__, ret);
 		}
@@ -333,7 +348,7 @@ int execute_async_bio_destroy(void* b, void* cb) {
 	//printf("task %p %s ocall_queue %p\n", lthread_current(), __func__, ocall_queue);
 
 	if (!ocall_queue || !lthread_current()) {
-		sgx_status_t ret = ocall_bio_destroy(&retval, b, cb);
+		sgx_status_t ret = ocall_bio_destroy(&retval, (BIO*)b, cb);
 		if (ret != SGX_SUCCESS) {
 			printf("%s:%s:%i ret = %i\n", __FILE__, __func__, __LINE__, ret);
 		}
@@ -469,7 +484,7 @@ int ocall_alpn_select_cb_async_wrapper(SSL* s, unsigned char** out, unsigned cha
 		struct cell_alpn_select_cb* cs = (struct cell_alpn_select_cb*)msg;
 		cs->s = s;
 		cs->out = NULL;
-		cs->in = out_buf;
+		cs->in = (unsigned char*)out_buf;
 		cs->inlen = inlen;
 		cs->arg = arg;
 		cs->cb = cb;
@@ -675,11 +690,12 @@ int puts(const char *s) {
 
 int my_vasprintf(char **strp, const char *fmt, va_list ap) {
 	va_list ap2;
-	va_copy(ap2, ap);
+	//va_copy(ap2, ap);
+	__builtin_va_copy(ap2, ap);
 	int l = vsnprintf(0, 0, fmt, ap2);
 	va_end(ap2);
 
-	if (l<0 || !(*strp=malloc(l+1U))) return -1;
+	if (l<0 || !(*strp=(char*)malloc(l+1U))) return -1;
 	return vsnprintf(*strp, l+1U, fmt, ap);
 }
 
@@ -1318,9 +1334,9 @@ int fstatvfs(int fd, struct statvfs *buf) {
 
 char *my_strdup(const char *s) {
 	size_t l = strlen(s);
-	char *d = malloc(l+1);
+	char *d = (char*)malloc(l+1);
 	if (!d) return NULL;
-	return memcpy(d, s, l+1);
+	return (char*)memcpy(d, s, l+1);
 }
 
 char *my_strndup(const char *__string, size_t __n) {
@@ -1384,7 +1400,7 @@ pid_t getpgid(pid_t pid) {
 uid_t geteuid(void) {
 	uid_t ret;
         sgx_status_t status;
-        status = ocall_getuid(&ret);
+        status = ocall_getuid((int*)&ret);
         if (status != SGX_SUCCESS) {
                 print_error_message(status);
                 return 0;
@@ -1469,7 +1485,7 @@ static const unsigned short table_1[] = {
 static const unsigned short *const ptable_1 = table_1+128;
 
 const unsigned short **__ctype_b_loc(void) {
-	return (void *)&ptable_1;
+	return (const unsigned short**)&ptable_1;
 }
 
 /******************** __CTYPE_TOLOWER_LOC ********************/
@@ -1499,5 +1515,5 @@ static const int32_t table_2[] = {
 static const int32_t *const ptable_2 = table_2+128;
 
 const int32_t **__ctype_tolower_loc(void) {
-	return (void *)&ptable_2;
+	return (const int32_t**)&ptable_2;
 }

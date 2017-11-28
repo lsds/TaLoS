@@ -1,5 +1,5 @@
---- ./ssl/ssl_rsa.c	2017-03-08 11:15:50.833462303 +0000
-+++ ../talos/./ssl/ssl_rsa.c	2017-03-08 11:13:57.599749421 +0000
+--- ./ssl/ssl_rsa.c	2017-11-28 10:46:52.004404366 +0000
++++ ../talos/./ssl/ssl_rsa.c	2017-11-28 12:31:17.098089074 +0000
 @@ -70,6 +70,18 @@
  static int ssl_set_pkey(CERT *c, EVP_PKEY *pkey);
  static int ssl_ctx_use_certificate_chain_bio(SSL_CTX *, BIO *);
@@ -46,7 +46,19 @@
  static int
  ssl_set_cert(CERT *c, X509 *x)
  {
-@@ -562,6 +587,10 @@
+@@ -418,6 +443,11 @@
+ }
+ 
+ int
++ecall_SSL_CTX_use_certificate_file(SSL_CTX *ctx, const char *file, int type) {
++	return SSL_CTX_use_certificate_file(ctx, file, type);
++}
++
++int
+ SSL_CTX_use_certificate_file(SSL_CTX *ctx, const char *file, int type)
+ {
+ 	int j;
+@@ -562,6 +592,10 @@
  }
  
  int
@@ -57,7 +69,7 @@
  SSL_CTX_use_PrivateKey(SSL_CTX *ctx, EVP_PKEY *pkey)
  {
  	if (pkey == NULL) {
-@@ -577,6 +606,11 @@
+@@ -577,6 +611,11 @@
  }
  
  int
@@ -69,7 +81,7 @@
  SSL_CTX_use_PrivateKey_file(SSL_CTX *ctx, const char *file, int type)
  {
  	int j, ret = 0;
-@@ -708,6 +742,10 @@
+@@ -708,6 +747,10 @@
  }
  
  int

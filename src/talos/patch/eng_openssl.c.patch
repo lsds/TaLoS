@@ -1,5 +1,5 @@
---- ./crypto/engine/eng_openssl.c	2017-03-08 11:15:50.617466667 +0000
-+++ ../talos/./crypto/engine/eng_openssl.c	2017-03-08 11:13:57.339754669 +0000
+--- ./crypto/engine/eng_openssl.c	2017-11-28 10:46:51.996404519 +0000
++++ ../talos/./crypto/engine/eng_openssl.c	2017-07-17 11:08:32.229409910 +0100
 @@ -237,13 +237,19 @@
  	RC4_KEY ks;
  } TEST_RC4_KEY;

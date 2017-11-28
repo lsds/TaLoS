@@ -1,5 +1,5 @@
---- ./crypto/pem/pem_lib.c	2017-03-08 11:15:50.673465535 +0000
-+++ ../talos/./crypto/pem/pem_lib.c	2017-03-08 11:13:57.399753460 +0000
+--- ./crypto/pem/pem_lib.c	2017-11-28 10:46:51.996404519 +0000
++++ ../talos/./crypto/pem/pem_lib.c	2017-07-17 11:08:32.253409452 +0100
 @@ -71,6 +71,8 @@
  #include <openssl/pkcs12.h>
  #include <openssl/x509.h>

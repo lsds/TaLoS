@@ -1,5 +1,5 @@
---- ./crypto/ts/ts_conf.c	2017-03-08 11:15:50.693465131 +0000
-+++ ../talos/./crypto/ts/ts_conf.c	2017-03-08 11:13:57.415753134 +0000
+--- ./crypto/ts/ts_conf.c	2017-11-28 10:46:51.996404519 +0000
++++ ../talos/./crypto/ts/ts_conf.c	2017-07-17 11:08:32.257409376 +0100
 @@ -94,6 +94,13 @@
  
  /* Function definitions for certificate and key loading. */

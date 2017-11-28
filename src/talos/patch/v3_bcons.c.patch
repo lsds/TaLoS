@@ -1,5 +1,5 @@
---- ./crypto/x509v3/v3_bcons.c	2017-03-08 11:15:50.729464404 +0000
-+++ ../talos/./crypto/x509v3/v3_bcons.c	2017-03-08 11:13:57.459752247 +0000
+--- ./crypto/x509v3/v3_bcons.c	2017-11-28 10:46:52.000404443 +0000
++++ ../talos/./crypto/x509v3/v3_bcons.c	2017-07-17 11:08:32.257409376 +0100
 @@ -134,12 +134,37 @@
  	return (BASIC_CONSTRAINTS *)ASN1_item_new(&BASIC_CONSTRAINTS_it);
  }

@@ -1,5 +1,5 @@
---- ./crypto/md5/md5_dgst.c	2017-03-08 11:15:50.657465859 +0000
-+++ ../talos/./crypto/md5/md5_dgst.c	2017-03-08 11:13:57.383753782 +0000
+--- ./crypto/md5/md5_dgst.c	2017-11-28 10:46:51.996404519 +0000
++++ ../talos/./crypto/md5/md5_dgst.c	2017-07-17 11:08:32.241409681 +0100
 @@ -69,15 +69,26 @@
  #define INIT_DATA_C (unsigned long)0x98badcfeL
  #define INIT_DATA_D (unsigned long)0x10325476L

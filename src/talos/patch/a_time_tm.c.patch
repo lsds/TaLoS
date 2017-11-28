@@ -1,5 +1,5 @@
---- ./crypto/asn1/a_time_tm.c	2017-03-08 11:15:50.529468444 +0000
-+++ ../talos/./crypto/asn1/a_time_tm.c	2017-03-08 11:13:57.215757175 +0000
+--- ./crypto/asn1/a_time_tm.c	2017-11-28 10:46:51.992404595 +0000
++++ ../talos/./crypto/asn1/a_time_tm.c	2017-07-17 11:08:32.261409300 +0100
 @@ -29,6 +29,14 @@
  #define GENTIME_LENGTH 15
  #define UTCTIME_LENGTH 13
