@@ -26,4 +26,6 @@
 
 #undef SQUID_WORKAROUND // define this macro when compiling with Squid, to activate AES-NI and avoid an illegal instruction
 
+#undef DO_LOGGING // if defined then the request/response will be send to a logging module so that they can be further processed inside the enclave
+
 #endif

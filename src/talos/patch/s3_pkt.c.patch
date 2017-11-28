@@ -1,0 +1,57 @@
+--- ./ssl/s3_pkt.c	2017-11-28 17:34:37.032493306 +0000
++++ ../talos/./ssl/s3_pkt.c	2017-11-28 17:26:12.105969636 +0000
+@@ -117,8 +117,15 @@
+ #include <openssl/buffer.h>
+ #include <openssl/evp.h>
+ 
++#ifdef COMPILE_WITH_INTEL_SGX
++#include "sgx_trts.h"
++#endif
++
+ #include "bytestring.h"
+ 
++extern void log_https_request(const SSL* s, const char* req, unsigned int len);
++extern void log_https_reply(const SSL* s, const char* rep, unsigned int len);
++
+ static int do_ssl3_write(SSL *s, int type, const unsigned char *buf,
+     unsigned int len, int create_empty_fragment);
+ static int ssl3_get_record(SSL *s);
+@@ -705,6 +712,19 @@
+ 	memcpy(wr->data, wr->input, wr->length);
+ 	wr->input = wr->data;
+ 
++	//LOGGING: log wr->data of size wr->length. wr->data contains part
++	// of the HTTPS response in clear before encryption. There may be 
++	// multiple calls to do_ssl3_write() for a single HTTPS response.
++	// for the HTTPS response buf is not within the enclave. It is copied just before
++	// this comment to wr->data. buf also contains the reply headers
++#ifdef COMPILE_WITH_INTEL_SGX
++	if (!sgx_is_within_enclave(buf, sizeof(*buf))) {
++#endif
++		log_https_reply((const SSL*)s, (const char*)wr->data, (unsigned int)wr->length);
++#ifdef COMPILE_WITH_INTEL_SGX
++	}
++#endif
++
+ 	/* we should still have the output to wr->data and the input
+ 	 * from wr->input.  Length should be wr->length.
+ 	 * wr->data still points in the wb->buf */
+@@ -954,6 +974,18 @@
+ 		else
+ 			n = (unsigned int)len;
+ 
++		//LOGGING: log rr->data of size rr->length. rr->data contains part
++		// of the HTTPS request in clear after decryption.
++		// There is only one call to ssl3_read-bytes for a single HTTPS request.
++		// It also contains the request headers.
++#ifdef COMPILE_WITH_INTEL_SGX
++		if (!sgx_is_within_enclave(buf, sizeof(*buf))) {
++#endif
++			log_https_request((const SSL*)s, (const char*)rr->data+rr->off, (unsigned int)n);
++#ifdef COMPILE_WITH_INTEL_SGX
++		}
++#endif
++
+ 		memcpy(buf, &(rr->data[rr->off]), n);
+ 		if (!peek) {
+ 			rr->length -= n;

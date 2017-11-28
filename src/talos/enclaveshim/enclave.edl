@@ -232,6 +232,10 @@ enclave {
 		/* Asynchronous ecalls */
 		public void ecall_start_sgx_thread([user_check] void* eq, [user_check] void* oq, int tid, int appthreads, int sgxthreads, int lthread_tasks, int ncycles, [user_check] uint64_t* rdtsc_value);
 
+		/* logging of https request/response */
+		public void ecall_logpoint_init(void);
+
+
 		/* simple server test */
 		public int ecall_SSL_CTX_use_certificate_file([user_check] SSL_CTX *ctx, [in, string] const char *file, int type);
 	};

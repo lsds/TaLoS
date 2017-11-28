@@ -333,6 +333,20 @@ void* async_ecall_busy_waiter(void* arg) {
 	}
 }
 
+void logpoint_init() {
+	// this is the only ecall that doesn't call initialize_library
+	// ass logpoint_init is called from initialize_library
+   	log_enter_ecall(__func__);
+	sgx_status_t ret = SGX_ERROR_UNEXPECTED;
+
+	ret = ecall_logpoint_init(global_eid);
+	if (ret != SGX_SUCCESS) {
+		print_error_message(ret, __func__);
+	}
+
+	log_exit_ecall(__func__);
+}
+
 void initialize_library(void) {
 	if (initialize_enclave() < 0) {
 		printf("Enclave initialization error!\n");
@@ -387,6 +401,12 @@ void initialize_library(void) {
 
 		pthread_t t;
 		pthread_create(&t, NULL, async_ecall_busy_waiter, NULL);
+	}
+	if (modsslload == 1)
+	{
+#endif
+		logpoint_init();
+#ifdef USE_ASYNC_ECALLS_OCALLS
 	}
 #endif
 }
