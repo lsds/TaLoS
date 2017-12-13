@@ -1,5 +1,5 @@
---- ./ssl/s3_pkt.c	2017-11-28 17:34:37.032493306 +0000
-+++ ../talos/./ssl/s3_pkt.c	2017-11-28 17:26:12.105969636 +0000
+--- ./ssl/s3_pkt.c	2017-12-13 16:41:31.543603029 +0000
++++ ../talos/./ssl/s3_pkt.c	2017-12-13 16:39:16.426176176 +0000
 @@ -117,8 +117,15 @@
  #include <openssl/buffer.h>
  #include <openssl/evp.h>
@@ -10,8 +10,8 @@
 +
  #include "bytestring.h"
  
-+extern void log_https_request(const SSL* s, const char* req, unsigned int len);
-+extern void log_https_reply(const SSL* s, const char* rep, unsigned int len);
++extern void tls_processing_ssl_read(const SSL* s, char* data, unsigned int len);
++extern void tls_processing_ssl_write(const SSL* s, char* data, unsigned int len);
 +
  static int do_ssl3_write(SSL *s, int type, const unsigned char *buf,
      unsigned int len, int create_empty_fragment);
@@ -28,7 +28,7 @@
 +#ifdef COMPILE_WITH_INTEL_SGX
 +	if (!sgx_is_within_enclave(buf, sizeof(*buf))) {
 +#endif
-+		log_https_reply((const SSL*)s, (const char*)wr->data, (unsigned int)wr->length);
++		tls_processing_ssl_write((const SSL*)s, (char*)wr->data, (unsigned int)wr->length);
 +#ifdef COMPILE_WITH_INTEL_SGX
 +	}
 +#endif
@@ -47,7 +47,7 @@
 +#ifdef COMPILE_WITH_INTEL_SGX
 +		if (!sgx_is_within_enclave(buf, sizeof(*buf))) {
 +#endif
-+			log_https_request((const SSL*)s, (const char*)rr->data+rr->off, (unsigned int)n);
++			tls_processing_ssl_read((const SSL*)s, (char*)(rr->data+rr->off), (unsigned int)n);
 +#ifdef COMPILE_WITH_INTEL_SGX
 +		}
 +#endif

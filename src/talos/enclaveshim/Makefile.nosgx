@@ -576,7 +576,7 @@ LIBCRYPTO_CFILES = cpt_err.o \
 						 dso/dso_lib.o \
 						 dso/dso_null.o \
 						 dso/dso_openssl.o \
-						 enclaveshim_logpoint.o \
+						 tls_processing_interface.o \
 						 hashmap.o 
 
 LIBSSL_CFILES = \
@@ -630,8 +630,8 @@ COMPAT_FILES = compat/strlcat.o \
 					compat/explicit_bzero.o \
 					compat/getentropy_linux.o 
 
-# Add files here for your logging module
-LOGPOINT = logpoint.o 
+# Add files here for your TLS processing module
+TLSPROCESSINGMODULE = logpoint.o 
 
 %.o: %.s
 	$(CC) $(CCASFLAGS) -c $< -fPIC -DPIC -o $@
@@ -658,13 +658,13 @@ libssl_cfiles: $(LIBSSL_CFILES)
 
 compat: $(COMPAT_FILES)
 
-logpoint_cfiles: $(LOGPOINT)
+tlsprocessingmodule_cfiles: $(TLSPROCESSINGMODULE)
 
 #################################
 
-link: sfiles libcrypto_sfiles libcrypto_cfiles libssl_cfiles compat logpoint_cfiles
-	ar cru libenclave.a $(SFILES) $(LIBCRYPTO_SFILES) $(LIBCRYPTO_CFILES) $(LIBSSL_CFILES) $(COMPAT_FILES) $(LOGPOINT)
-	$(CC) -shared -o libenclave.so $(SFILES) $(LIBCRYPTO_SFILES) $(LIBCRYPTO_CFILES) $(LIBSSL_CFILES) $(COMPAT_FILES) $(LOGPOINT)
+link: sfiles libcrypto_sfiles libcrypto_cfiles libssl_cfiles compat tlsprocessingmodule_cfiles
+	ar cru libenclave.a $(SFILES) $(LIBCRYPTO_SFILES) $(LIBCRYPTO_CFILES) $(LIBSSL_CFILES) $(COMPAT_FILES) $(TLSPROCESSINGMODULE)
+	$(CC) -shared -o libenclave.so $(SFILES) $(LIBCRYPTO_SFILES) $(LIBCRYPTO_CFILES) $(LIBSSL_CFILES) $(COMPAT_FILES) $(TLSPROCESSINGMODULE)
 
 install: link
 	-mkdir -p ../lib

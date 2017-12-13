@@ -737,8 +737,8 @@ COMPAT_FILES = compat/strlcat.o \
 					compat/explicit_bzero.o \
 					compat/getentropy_linux.o
 
-# Add files here for your logging module
-LOGPOINT = logpoint.o 
+# Add files here for your TLS processing module
+TLSPROCESSINGMODULE = logpoint.o 
 
 %.o: %.s
 	@$(CC) $(CCASFLAGS) -c $< -fPIC -DPIC -o $@
@@ -766,7 +766,7 @@ libssl_cfiles: $(LIBSSL_CFILES)
 
 compat: $(COMPAT_FILES)
 
-logpoint_cfiles: $(LOGPOINT)
+TLSPROCESSINGMODULE_cfiles: $(TLSPROCESSINGMODULE)
 
 #################################
 
@@ -776,9 +776,9 @@ enclaveshim_ocalls.o: enclaveshim_ocalls.c enclave_t.c enclaveshim_ocalls.h
 	@$(CC) $(CFLAGS) -I../include $(Enclave_C_Flags) -I$(SGX_SDK)/include -fPIC -DPIC -c -o $@ $(srcbasefile).i
 	@echo "CC  <=  $<"
 
-enclaveshim_logpoint.o: enclaveshim_logpoint.c enclave_t.c enclaveshim_logpoint.h
+tls_processing_interface.o: tls_processing_interface.c tls_processing_interface.h
 	$(eval srcbasefile=$(basename $@))
-	@$(CC) $(CFLAGS) -DCOMPILE_WITH_INTEL_SGX -I../include -I$(SGX_SDK)/include -I. -Iauditing/include -Ilogpoint -E -o $(srcbasefile).i $<
+	@$(CC) $(CFLAGS) -DCOMPILE_WITH_INTEL_SGX -I../include -I$(SGX_SDK)/include -I. -Iauditing/include -E -o $(srcbasefile).i $<
 	@$(CC) $(CFLAGS) $(Enclave_C_Flags) -I$(SGX_SDK)/include -fPIC -DPIC -c -o $@ $(srcbasefile).i
 	@echo "CC  <=  $<"
 
@@ -812,8 +812,8 @@ mempool.o: mempool.c enclave_t.c
 	@$(CC) $(CFLAGS) -fPIC $(Enclave_C_Flags) -I$(SGX_SDK)/include -c -o $@ $(srcbasefile).i
 	@echo "CC  <=  $<"
 
-enclave: enclave_t.o enclaveshim_ocalls.o enclaveshim_logpoint.o ecall_queue.o mpmc_queue.o lthread.o lthread_sched.o mempool.o sfiles libcrypto_sfiles libcrypto_cfiles libssl_cfiles compat logpoint_cfiles
-	@$(CC) enclave_t.o enclaveshim_ocalls.o enclaveshim_logpoint.o ecall_queue.o mpmc_queue.o lthread.o lthread_sched.o mempool.o $(SFILES) $(LIBCRYPTO_SFILES) $(LIBCRYPTO_CFILES) $(LIBSSL_CFILES) $(COMPAT_FILES) $(LOGPOINT) -o $(Enclave_Name) $(Enclave_Link_Flags)
+enclave: enclave_t.o enclaveshim_ocalls.o tls_processing_interface.o ecall_queue.o mpmc_queue.o lthread.o lthread_sched.o mempool.o sfiles libcrypto_sfiles libcrypto_cfiles libssl_cfiles compat tlsprocessingmodule_cfiles
+	@$(CC) enclave_t.o enclaveshim_ocalls.o tls_processing_interface.o ecall_queue.o mpmc_queue.o lthread.o lthread_sched.o mempool.o $(SFILES) $(LIBCRYPTO_SFILES) $(LIBCRYPTO_CFILES) $(LIBSSL_CFILES) $(COMPAT_FILES) $(TLSPROCESSINGMODULE) -o $(Enclave_Name) $(Enclave_Link_Flags)
 	@echo "LINK =>  $(Enclave_Name)"
 
 signed_enclave: enclave

@@ -9,8 +9,7 @@ TLS library inside an [Intel SGX enclave](https://software.intel.com/sgx-sdk),
 while the rest of the application remains outside. It can then be used as the
 building block for a wide range of security-critical applications for which the
 integrity and/or confidentiality of TLS connections must be guaranteed.  TaLoS
-offers the developper a simple interface to log and/or process HTTPS
-communications securely.  For example, this interface can be used to securely
+offers the developper a [simple interface](#secure-processing-of-tls-communications) to process TLS communications securely.  For example, this interface can be used to securely
 send the HTTPS requests and responses to another enclave or to encrypt them
 before logging them to persistent storage.  TaLoS provides good performance by
 executing enclave transitions asynchronously and leveraging user-level
@@ -155,14 +154,14 @@ wget http://archive.apache.org/dist/httpd/httpd-2.4.23.tar.bz2
 ```
 
 We assume that you have extracted Apache to
-`${PROJECT_ROOT}/src/httpd-2.4.23`. You can now configure it: 
+`${PROJECT_ROOT}/src/httpd-2.4.23`. You can now configure it:
 ```bash
 $ ./configure --prefix=${PROJECT_ROOT}/src/httpd-2.4.23/install --enable-http --enable-proxy --enable-ssl --enable-ssl-staticlib-deps --with-ssl=${PROJECT_ROOT}/src/libressl-2.4.1 --enable-file-cache --enable-cache --enable-disk-cache --enable-mem-cache --enable-deflate --enable-expires --enable-headers --enable-usertrack --enable-cgi --enable-vhost-alias --enable-rewrite --enable-so --with-mpm=worker
 ```
 You then need to update `modules/ssl/modules.mk` as follows (you may want to
 change `-lsgx_urts -lsgx_uae_service` to `-lsgx_urts_sim -lsgx_uae_service_sim`
 to use the SGX simulator; note that you need to expand the ${PROJECT_ROOT}
-variable in this file): 
+variable in this file):
 ```bash
 MOD_CFLAGS = -I${PROJECT_ROOT}/src/libressl-2.4.1/include
 MOD_LDFLAGS = -L${PROJECT_ROOT}/src/libressl-2.4.1/lib -lssl -lcrypto -ldl -luuid -lrt -lcrypt -lpthread -lsgx_urts -lsgx_uae_service
@@ -186,7 +185,7 @@ $ echo "\nABC\nMy City\nMy Institution\n\nwww.example.com\n\n" | openssl req -x5
 $ ln -s ../libressl-2.4.1/crypto/enclave.signed.so
 ```
 
-Before starting Apache, you need to create the following symbolic links: 
+Before starting Apache, you need to create the following symbolic links:
 ```bash
 $ ln -s ../libressl-2.4.1/crypto/enclave.signed.so
 $ ln -s ../../../libressl-2.4.1/lib/libssl.so install/lib/libssl.so
@@ -267,37 +266,7 @@ int SSL_function(SSL* ssl, void* args) {
 
 ## Documentation
 
-### Logging of HTTPS requests and responses
-
-TaLoS can be used to build other systems that need to log/process HTTPS
-requests and responses in a secure manner, inside an SGX enclave.  It provides
-a very simple interface consisting of two functions:
-```c
-// initialize the logpoint module
-void logpoint_init(void);
-
-// send a request/response pair to the logpoint module
-void logpoint_log(char *req, char *rsp, unsigned int req_len, unsigned int rsp_len);
-```
-
-TaLoS hooks into the `ssl3_read_bytes` and `do_ssl3_write` functions of
-LibreSSL to monitor respectively the HTTPS request right after it has been
-decrypted and the HTTPS response right before it is encrypted.  The
-`enclaveshim_logpoint.c` file then builds pairs of request/corresponding
-response for each TLS connection and each communication exchange between the
-client and the server. Once such a pair has been constructed, it is sent to the
-`logpoint_log` function, defined in `logpoint.c`.
-
-The `logpoint.c` example provided with TaLoS simply prints a message for each
-call of `logpoint_log`.  It can be quite easily extended to support any other
-processing on the messages. Note that the request/response pair sent to the
-`logpoint_log` function is read-only: modifying it will not have any effect on
-the messages exchanged between the client and the server. 
-
-To activate the logging module, please define the `DO_LOGGING` macro in
-`enclaveshim_config.h`
-
-### Interface
+### TaLoS Interface
 
 TaLoS exposes the same interface as LibreSSL. The functions of the interface
 are defined in `enclaveshim_ecalls.c`. This file also loads the enclave (ie
@@ -331,7 +300,7 @@ The `ecall_function()` function is defined in `enclave.edl`. Refer to the Intel
 SGX SDK syntax for its format. It is also defined in libreSSL code near the
 definition of `function()`. While `ecall_function()` is the entry point of the
 enclave, `function()` is the actual function of the TLS library. For example,
-in `ssl/ssl_lib.c`: 
+in `ssl/ssl_lib.c`:
 ```c
 ecall_SSL_CTX_set_session_id_context(SSL_CTX *ctx, const unsigned char *sid_ctx,
     unsigned int sid_ctx_len) {
@@ -347,9 +316,28 @@ SSL_CTX_set_session_id_context(SSL_CTX *ctx, const unsigned char *sid_ctx,
 
 Ocalls, ie transitions from enclave code to untrusted code, are defined in a
 similar way in `enclaveshim_ocalls.c` (code executed inside the enclave) and
-`ocalls.c` (code executed outside of the enclave). 
+`ocalls.c` (code executed outside of the enclave).
 
-If an interface function does not have an associated ecall, it prints a `need to implement ecall ...` message. 
+If an interface function does not have an associated ecall, it prints a `need to implement ecall ...` message.
+
+### Secure processing of TLS communications
+
+TaLoS can be used to build other systems that need to process the TLS communication in a secure manner, inside an SGX enclave. The interface consists of a set of private functions, called by LibreSSL, and public functions, used by your TLS processing module to register callbacks. These callbacks are called by the "private" functions.
+The public interface is the following:
+  * `void tls_processing_register_ssl_read_processing_cb(void (*cb)(const SSL*, char*, unsigned int))`: register the callback that will be called by `ssl3_read_bytes()` in `ssl/s3_pkt.c` when data is read from the TLS connection socket;
+  * `void tls_processing_register_ssl_write_processing_cb(void (*cb)(const SSL*, char*, unsigned int))`: register the callback that will be called by `do_ssl3_write()` in `ssl/s3_pkt.c` when data is read from the TLS connection socket;
+  * `void tls_processing_register_set_ssl_type_cb(void (*cb)(const void*, const long))`: register the callback that will be called by `BIO_int_ctrl()` when the command is `BIO_C_SET_FD`. This callback is used for Squid in SSL proxy mode to differentiate the connection between the client and the proxy from the connection between the proxy and the server;
+  * `void tls_processing_register_new_connection_cb(void (*cb)(const SSL*))`: register the callback that will be called from `SSL_new()` in `ssl/ssl_lib.c` when a new TLS connection is created;
+  * `void tls_processing_register_free_connection_cb(void (*cb)(const SSL*))`: register the callback that will be called from `SSL_free()` in `ssl/ssl_lib.c` when a TLS connection is terminated.
+
+In addition, your TLS processing module must implement the `void tls_processing_module_init(void)`, which is called upon the enclave creation. In this function you can register the callbacks and initialise your code.
+
+The callbacks registered for `tls_processing_register_ssl_read_processing_cb()` and `tls_processing_register_ssl_write_processing_cb()` can not only read the data buffer but also modify it in place. This can for example be used to ensure that an application calling `SSL_read()` does not observe sensitive data that goes through the TLS connection.
+
+The file `logpoint.c` is a minimal example of a TLS processing module that uses this interface to log the TLS communications. To enable it, please define the `DO_LOGGING` macro in `logpoint.c`.
+The Makefiles define a variable `TLSPROCESSINGMODULE` which lists the files that need to be compiled for your module.
+
+Not that, because LibSEAL cannot load existing shared libraries inside an enclave, a recompilation of TaLoS is necessary to use a different module.
 
 ### Asynchronous Enclave Transitions
 
@@ -360,35 +348,35 @@ perform call executions.
 
 Applications threads share two arrays with the lthread tasks to send ecalls and
 ocalls requests and results. These arrays are defined at lines 206 and 207 of
-`enclaveshim_ecalls.c`. 
+`enclaveshim_ecalls.c`.
 
 To add an ecall/ocall to the asynchronous queue, you need to:
 
 - modify `make_asynchronous_ecall` in `enclaveshim_ecalls.c` to enqueue your
-  async ecall and wait for the result or any ocall to execute; 
+  async ecall and wait for the result or any ocall to execute;
 
 - modify your interface function in `enclaveshim_ecalls.c` to create the async
   ecall with the necessary arguments and read the result (see `SSL_read()` line
-  545 for an example); 
+  545 for an example);
 
 - add your new ecall (or ocall) type in `ecall_queue.h`;
 
 - create a new function in `enclaveshim_ocalls.h` to make an asynchronous ocall;
 
 - modify `lthread_main_handler()` in `../ssl/ssl_lib.c` to read your ecall from
-  the ecall queue and execute the corresponding function. 
+  the ecall queue and execute the corresponding function.
 
 ### Shadow Data Structure Mechanism
 
 TaLoS uses shadow structures to protect the security and integrity of the SSL
 object. It maintains a sanitised copy of the SSL structure outside the enclave,
-with all sensitive data removed. 
+with all sensitive data removed.
 
 The association between the enclave structure and the shadow structure is
-stored in a hashmap inside the enclave. 
+stored in a hashmap inside the enclave.
 
 TaLoS synchronises the two SSL structures at ecalls and ocalls, as shown in the
-listing below: 
+listing below:
 ```c
 BIO* ecall_SSL_get_wbio(const SSL *s)
 {
@@ -401,7 +389,7 @@ BIO* ecall_SSL_get_wbio(const SSL *s)
 
   // copy fields from out structure to in structure
   SSL_copy_fields_to_in_struct(in_s, out_s);
-  
+
   // execute the TLS function by passing it a pointer to the in structure
   BIO* ret = SSL_get_wbio((const SSL*)in_s);
 
@@ -417,10 +405,9 @@ BIO* ecall_SSL_get_wbio(const SSL *s)
 Several API functions permit the application to submit function pointers. As
 TaLoS executes inside an SGX enclave, it must trigger an ocall before calling
 such functions. To address this problem, we create wrapper functions. See
-`bio/bio_lib.c` for more details. 
+`bio/bio_lib.c` for more details.
 
 ## References
 
 <a name="talosfootnote">1</a>: "In Greek mythology, Talos was a giant automaton made of bronze to protect
 Europa in Crete from pirates and invaders.", https://en.wikipedia.org/wiki/Talos
-

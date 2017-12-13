@@ -1,10 +1,10 @@
---- ./crypto/bio/bio_lib.c	2017-11-28 17:34:37.008493757 +0000
-+++ ../talos/./crypto/bio/bio_lib.c	2017-11-28 17:25:46.390452303 +0000
+--- ./crypto/bio/bio_lib.c	2017-12-13 16:41:31.467604477 +0000
++++ ../talos/./crypto/bio/bio_lib.c	2017-12-13 16:38:44.098791704 +0000
 @@ -64,24 +64,243 @@
  #include <openssl/err.h>
  #include <openssl/stack.h>
  
-+#include "enclaveshim_logpoint.h"
++#include "tls_processing_interface.h"
 +
 +#ifdef COMPILE_WITH_INTEL_SGX
 +#include "sgx_error.h"
@@ -299,7 +299,7 @@
 +	// in the case of Squid we need to check the type of the BIO
 +	// to log only the messages between the client and the proxy
 +	if (cmd == BIO_C_SET_FD) {
-+		log_set_ssl_type(b, larg);
++		tls_processing_set_ssl_type(b, larg);
 +	}
 +#ifdef COMPILE_WITH_INTEL_SGX
 +	// BIO_int_ctrl can make an ocall with a pointer to a copy of iarg, so we need memory outside of the enclave

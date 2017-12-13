@@ -1,5 +1,5 @@
---- ./ssl/ssl_lib.c	2017-11-28 14:55:46.294868014 +0000
-+++ ../talos/./ssl/ssl_lib.c	2017-11-28 15:15:13.688925692 +0000
+--- ./ssl/ssl_lib.c	2017-12-13 16:41:31.547602953 +0000
++++ ../talos/./ssl/ssl_lib.c	2017-12-13 16:39:23.426042889 +0000
 @@ -157,6 +157,40 @@
  
  #include "bytestring.h"
@@ -35,8 +35,8 @@
 +extern int ocall_new_session_callback(struct ssl_st *ssl, void *sess, void* cb);
 +*/
 +#endif
-+extern void log_new_connection(const SSL* s);
-+extern void log_free_connection(const SSL* s);
++extern void tls_processing_new_connection(const SSL* s);
++extern void tls_processing_free_connection(const SSL* s);
 +
  const char *SSL_version_str = OPENSSL_VERSION_TEXT;
  
@@ -177,7 +177,7 @@
  
  	CRYPTO_new_ex_data(CRYPTO_EX_INDEX_SSL, s, &s->ex_data);
  
-+	log_new_connection((const SSL*)s);
++	tls_processing_new_connection((const SSL*)s);
 +
  	return (s);
  
@@ -264,7 +264,7 @@
  		sk_SRTP_PROTECTION_PROFILE_free(s->srtp_profiles);
  #endif
  
-+	log_free_connection((const SSL*)s);
++	tls_processing_free_connection((const SSL*)s);
 +
  	free(s);
  }
