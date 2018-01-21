@@ -766,7 +766,7 @@ libssl_cfiles: $(LIBSSL_CFILES)
 
 compat: $(COMPAT_FILES)
 
-TLSPROCESSINGMODULE_cfiles: $(TLSPROCESSINGMODULE)
+tlsprocessingmodule_cfiles: $(TLSPROCESSINGMODULE)
 
 #################################
 
