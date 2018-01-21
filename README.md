@@ -383,9 +383,8 @@ BIO* ecall_SSL_get_wbio(const SSL *s)
   SSL* out_s = (SSL*)s;
 
   // retrieve the in-enclave structure from the hashmap
-  sgx_spin_lock(&ssl_hardening_map_lock);
-  SSL* in_s = (SSL*) hashmapGet(ssl_hardening_map, (unsigned long)out_s);
-  sgx_spin_unlock(&ssl_hardening_map_lock);
+  hashmap* m = get_ssl_hardening();
+  SSL* in_s = (SSL*) hashmapGet(m, (unsigned long)out_s);
 
   // copy fields from out structure to in structure
   SSL_copy_fields_to_in_struct(in_s, out_s);

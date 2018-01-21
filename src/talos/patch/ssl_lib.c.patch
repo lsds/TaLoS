@@ -1,5 +1,5 @@
---- ./ssl/ssl_lib.c	2017-12-13 16:41:31.547602953 +0000
-+++ ../talos/./ssl/ssl_lib.c	2017-12-13 16:39:23.426042889 +0000
+--- ./ssl/ssl_lib.c	2017-12-13 16:58:26.616217221 +0000
++++ ../talos/./ssl/ssl_lib.c	2018-01-21 15:23:53.970788464 +0000
 @@ -157,6 +157,40 @@
  
  #include "bytestring.h"
@@ -783,7 +783,7 @@
  long
  SSL_CTX_ctrl(SSL_CTX *ctx, int cmd, long larg, void *parg)
  {
-@@ -1191,6 +1785,67 @@
+@@ -1191,6 +1785,69 @@
  	}
  }
  
@@ -804,7 +804,8 @@
 +	return;
 +#else
 +	if (ssl_ctx_info_cb_address) {
-+		SSL* out_s = (SSL*) hashmapGet(ssl_hardening_map, (unsigned long)ssl);
++		hashmap* m = get_ssl_hardening();
++		SSL* out_s = (SSL*) hashmapGet(m, (unsigned long)ssl);
 +
 +		SSL_copy_fields_to_out_struct(ssl, out_s);
 +		ocall_execute_ssl_ctx_info_callback(out_s, type, val, ssl_ctx_info_cb_address);
@@ -822,7 +823,8 @@
 +	// don't call this callback. It is used for SNI stuff that we don't need
 +	int ret = 0;
 +	if (callback_address) {
-+		SSL* out_s = (SSL*) hashmapGet(ssl_hardening_map, (unsigned long)ssl);
++		hashmap* m = get_ssl_hardening();
++		SSL* out_s = (SSL*) hashmapGet(m, (unsigned long)ssl);
 +
 +		SSL_copy_fields_to_out_struct(ssl, out_s);
 +		ocall_ssl_ctx_callback_ctrl(&ret, out_s, ad, arg, (void*)callback_address);
@@ -851,7 +853,7 @@
  long
  SSL_CTX_callback_ctrl(SSL_CTX *ctx, int cmd, void (*fp)(void))
  {
-@@ -1236,6 +1891,22 @@
+@@ -1236,6 +1893,22 @@
   * preference.
   */
  STACK_OF(SSL_CIPHER) *
@@ -874,7 +876,7 @@
  SSL_get_ciphers(const SSL *s)
  {
  	if (s != NULL) {
-@@ -1286,6 +1957,10 @@
+@@ -1286,6 +1959,10 @@
  
  /* Specify the ciphers to be used by default by the SSL_CTX. */
  int
@@ -885,7 +887,7 @@
  SSL_CTX_set_cipher_list(SSL_CTX *ctx, const char *str)
  {
  	STACK_OF(SSL_CIPHER)	*sk;
-@@ -1312,6 +1987,23 @@
+@@ -1312,6 +1989,23 @@
  
  /* Specify the ciphers to be used by the SSL. */
  int
@@ -909,7 +911,7 @@
  SSL_set_cipher_list(SSL *s, const char *str)
  {
  	STACK_OF(SSL_CIPHER)	*sk;
-@@ -1488,6 +2180,27 @@
+@@ -1488,6 +2182,27 @@
   * Return a servername extension value if provided in Client Hello, or NULL.
   * So far, only host_name types are defined (RFC 3546).
   */
@@ -937,7 +939,7 @@
  const char *
  SSL_get_servername(const SSL *s, const int type)
  {
-@@ -1541,6 +2254,13 @@
+@@ -1541,6 +2256,13 @@
   * OPENSSL_NPN_NO_OVERLAP if the fallback case was reached.
   */
  int
@@ -951,7 +953,7 @@
  SSL_select_next_proto(unsigned char **out, unsigned char *outlen,
      const unsigned char *server, unsigned int server_len,
      const unsigned char *client, unsigned int client_len)
-@@ -1612,6 +2332,10 @@
+@@ -1612,6 +2334,10 @@
   * The callback should return SSL_TLSEXT_ERR_OK if it wishes to advertise.
   * Otherwise, no such extension will be included in the ServerHello.
   */
@@ -962,7 +964,7 @@
  void
  SSL_CTX_set_next_protos_advertised_cb(SSL_CTX *ctx, int (*cb) (SSL *ssl,
      const unsigned char **out, unsigned int *outlen, void *arg), void *arg)
-@@ -1631,6 +2355,35 @@
+@@ -1631,6 +2357,35 @@
   * The client must select a protocol. It is fatal to the connection if this
   * callback returns a value other than SSL_TLSEXT_ERR_OK.
   */
@@ -998,7 +1000,7 @@
  void
  SSL_CTX_set_next_proto_select_cb(SSL_CTX *ctx, int (*cb) (SSL *s,
      unsigned char **out, unsigned char *outlen, const unsigned char *in,
-@@ -1664,6 +2417,23 @@
+@@ -1664,6 +2419,23 @@
   * 8-bit length-prefixed strings). Returns 0 on success.
   */
  int
@@ -1022,7 +1024,7 @@
  SSL_set_alpn_protos(SSL *ssl, const unsigned char* protos,
      unsigned int protos_len)
  {
-@@ -1682,6 +2452,14 @@
+@@ -1682,6 +2454,14 @@
   * client's list of offered protocols.
   */
  void
@@ -1037,7 +1039,7 @@
  SSL_CTX_set_alpn_select_cb(SSL_CTX* ctx,
      int (*cb) (SSL *ssl, const unsigned char **out, unsigned char *outlen,
      const unsigned char *in, unsigned int inlen, void *arg), void *arg)
-@@ -1762,6 +2540,10 @@
+@@ -1762,6 +2542,10 @@
  IMPLEMENT_LHASH_COMP_FN(ssl_session, SSL_SESSION)
  
  SSL_CTX *
@@ -1048,7 +1050,7 @@
  SSL_CTX_new(const SSL_METHOD *meth)
  {
  	SSL_CTX	*ret = NULL;
-@@ -1909,6 +2691,10 @@
+@@ -1909,6 +2693,10 @@
  }
  
  void
@@ -1059,7 +1061,7 @@
  SSL_CTX_free(SSL_CTX *a)
  {
  	int	i;
-@@ -1968,6 +2754,29 @@
+@@ -1968,6 +2756,29 @@
  	free(a);
  }
  
@@ -1089,7 +1091,7 @@
  void
  SSL_CTX_set_default_passwd_cb(SSL_CTX *ctx, pem_password_cb *cb)
  {
-@@ -1980,6 +2789,26 @@
+@@ -1980,6 +2791,26 @@
  	ctx->default_passwd_callback_userdata = u;
  }
  
@@ -1116,7 +1118,7 @@
  void
  SSL_CTX_set_cert_verify_callback(SSL_CTX *ctx, int (*cb)(X509_STORE_CTX *,
      void *), void *arg)
-@@ -1988,6 +2817,28 @@
+@@ -1988,6 +2819,28 @@
  	ctx->app_verify_arg = arg;
  }
  
@@ -1145,7 +1147,7 @@
  void
  SSL_CTX_set_verify(SSL_CTX *ctx, int mode, int (*cb)(int, X509_STORE_CTX *))
  {
-@@ -1996,6 +2847,10 @@
+@@ -1996,6 +2849,10 @@
  }
  
  void
@@ -1156,7 +1158,7 @@
  SSL_CTX_set_verify_depth(SSL_CTX *ctx, int depth)
  {
  	X509_VERIFY_PARAM_set_depth(ctx->param, depth);
-@@ -2292,6 +3147,33 @@
+@@ -2292,6 +3149,33 @@
  	return (dhp);
  }
  
@@ -1190,7 +1192,7 @@
  void
  ssl_update_cache(SSL *s, int mode)
  {
-@@ -2309,7 +3191,9 @@
+@@ -2309,7 +3193,9 @@
  	    || SSL_CTX_add_session(s->session_ctx, s->session))
  	    && (s->session_ctx->new_session_cb != NULL)) {
  		CRYPTO_add(&s->session->references, 1, CRYPTO_LOCK_SSL_SESSION);
@@ -1201,7 +1203,7 @@
  			SSL_SESSION_free(s->session);
  	}
  
-@@ -2357,6 +3241,18 @@
+@@ -2357,6 +3243,18 @@
  }
  
  int
@@ -1220,7 +1222,7 @@
  SSL_get_error(const SSL *s, int i)
  {
  	int		 reason;
-@@ -2435,6 +3331,18 @@
+@@ -2435,6 +3333,18 @@
  }
  
  int
@@ -1239,7 +1241,7 @@
  SSL_do_handshake(SSL *s)
  {
  	int	ret = 1;
-@@ -2457,6 +3365,19 @@
+@@ -2457,6 +3367,19 @@
   * one of these calls will reset it
   */
  void
@@ -1259,7 +1261,7 @@
  SSL_set_accept_state(SSL *s)
  {
  	s->server = 1;
-@@ -2470,6 +3391,18 @@
+@@ -2470,6 +3393,18 @@
  }
  
  void
@@ -1278,7 +1280,7 @@
  SSL_set_connect_state(SSL *s)
  {
  	s->server = 0;
-@@ -2523,6 +3456,11 @@
+@@ -2523,6 +3458,11 @@
  	}
  }
  
@@ -1290,7 +1292,7 @@
  const char *
  SSL_get_version(const SSL *s)
  {
-@@ -2556,6 +3494,45 @@
+@@ -2556,6 +3496,45 @@
  	return (0);
  }
  
@@ -1336,7 +1338,7 @@
  SSL *
  SSL_dup(SSL *s)
  {
-@@ -2711,6 +3688,19 @@
+@@ -2711,6 +3690,19 @@
  
  /* Fix this function so that it takes an optional type parameter */
  X509 *
@@ -1356,7 +1358,7 @@
  SSL_get_certificate(const SSL *s)
  {
  	if (s->cert != NULL)
-@@ -2720,6 +3710,21 @@
+@@ -2720,6 +3712,21 @@
  }
  
  /* Fix this function so that it takes an optional type parameter */
@@ -1378,7 +1380,7 @@
  EVP_PKEY *
  SSL_get_privatekey(SSL *s)
  {
-@@ -2729,6 +3734,11 @@
+@@ -2729,6 +3736,11 @@
  		return (NULL);
  }
  
@@ -1390,7 +1392,7 @@
  const SSL_CIPHER *
  SSL_get_current_cipher(const SSL *s)
  {
-@@ -2809,6 +3819,10 @@
+@@ -2809,6 +3821,10 @@
  }
  
  void
@@ -1401,7 +1403,7 @@
  SSL_set_quiet_shutdown(SSL *s, int mode)
  {
  	s->quiet_shutdown = mode;
-@@ -2821,12 +3835,43 @@
+@@ -2821,12 +3837,43 @@
  }
  
  void
@@ -1445,7 +1447,7 @@
  SSL_get_shutdown(const SSL *s)
  {
  	return (s->shutdown);
-@@ -2839,12 +3884,34 @@
+@@ -2839,12 +3886,34 @@
  }
  
  SSL_CTX *
@@ -1480,7 +1482,7 @@
  SSL_set_SSL_CTX(SSL *ssl, SSL_CTX* ctx)
  {
  	if (ssl->ctx == ctx)
-@@ -2861,6 +3928,10 @@
+@@ -2861,6 +3930,10 @@
  }
  
  int
@@ -1491,7 +1493,7 @@
  SSL_CTX_set_default_verify_paths(SSL_CTX *ctx)
  {
  	return (X509_STORE_set_default_paths(ctx->cert_store));
-@@ -2879,17 +3950,23 @@
+@@ -2879,17 +3952,23 @@
  	return (X509_STORE_load_mem(ctx->cert_store, buf, len));
  }
  
@@ -1523,7 +1525,7 @@
  int
  SSL_state(const SSL *ssl)
  {
-@@ -2903,17 +3980,92 @@
+@@ -2903,17 +3982,92 @@
  }
  
  void
@@ -1616,7 +1618,7 @@
  int
  SSL_get_ex_new_index(long argl, void *argp, CRYPTO_EX_new *new_func,
      CRYPTO_EX_dup *dup_func, CRYPTO_EX_free *free_func)
-@@ -2935,6 +4087,11 @@
+@@ -2935,6 +4089,11 @@
  }
  
  int
@@ -1628,7 +1630,7 @@
  SSL_CTX_get_ex_new_index(long argl, void *argp, CRYPTO_EX_new *new_func,
      CRYPTO_EX_dup *dup_func, CRYPTO_EX_free *free_func)
  {
-@@ -2943,12 +4100,20 @@
+@@ -2943,12 +4102,20 @@
  }
  
  int
@@ -1649,7 +1651,7 @@
  SSL_CTX_get_ex_data(const SSL_CTX *s, int idx)
  {
  	return (CRYPTO_get_ex_data(&s->ex_data, idx));
-@@ -2961,6 +4126,10 @@
+@@ -2961,6 +4128,10 @@
  }
  
  X509_STORE *
@@ -1660,7 +1662,7 @@
  SSL_CTX_get_cert_store(const SSL_CTX *ctx)
  {
  	return (ctx->cert_store);
-@@ -2980,6 +4149,40 @@
+@@ -2980,6 +4151,40 @@
  	return (s->rwstate);
  }
  
@@ -1701,7 +1703,7 @@
  void
  SSL_CTX_set_tmp_rsa_callback(SSL_CTX *ctx, RSA *(*cb)(SSL *ssl, int is_export,
      int keylength))
-@@ -2994,6 +4197,39 @@
+@@ -2994,6 +4199,39 @@
  	SSL_callback_ctrl(ssl, SSL_CTRL_SET_TMP_RSA_CB,(void (*)(void))cb);
  }
  
