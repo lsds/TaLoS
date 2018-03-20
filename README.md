@@ -115,8 +115,8 @@ You then need to edit `objs/Makefile`:
    must be replaced by `-I ${PROJECT_ROOT}/src/libressl-2.4.1/include`. It might also be necessary to
    include `${PROJECT_ROOT}/libressl-2.4.1/crypto` and `${SGX_SDK_ROOT}/include`.
 
-2. remove the `include/openssl/ssh.h` line in `CORE_DEPS` and the
-   `include/openssl/ssh.h` rule (we have already compiled libressl);
+2. remove the `include/openssl/ssl.h` line in `CORE_DEPS` and the
+   `include/openssl/ssl.h` rule (we have already compiled libressl);
 
 3. in `objs/nginx`, for the LINK phase, update the following line with the
    correct path to `libssl.a` and `libcrypto.a` and add `-lsgx_urts
