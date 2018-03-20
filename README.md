@@ -54,7 +54,8 @@ repository. To use it:
 
 Follow these instructions to build the TaLoS library and the sample
 applications. We assume that the path to the repository is `${PROJECT_ROOT}`
-(eg `/home/<username>/talos/`).
+(eg `/home/<username>/talos/`). We also assume that the Intel SGX SDK has
+already been installed, in `${SGX_SDK_ROOT}`.
 
 ### Compiling the TaLoS Library
 
@@ -109,7 +110,10 @@ We assume that you have downloaded and extracted Nginx to `${PROJECT_ROOT}/src/n
 
 You then need to edit `objs/Makefile`:
 
-1. check that the path for the include directory of libressl is correct in `ALL_INCS` and `CORE_INCS`;
+1. check that the path for the include directory of libressl is correct in `ALL_INCS` and `CORE_INCS`.
+   In particular, the includes of the form `-I ${PROJECT_ROOT}/src/libressl-2.4.1/.openssl/include`
+   must be replaced by `-I ${PROJECT_ROOT}/src/libressl-2.4.1/include`. It might also be necessary to
+   include `${PROJECT_ROOT}/libressl-2.4.1/crypto` and `${SGX_SDK_ROOT}/include`.
 
 2. remove the `include/openssl/ssh.h` line in `CORE_DEPS` and the
    `include/openssl/ssh.h` rule (we have already compiled libressl);
