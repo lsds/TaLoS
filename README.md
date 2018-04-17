@@ -54,8 +54,7 @@ repository. To use it:
 
 Follow these instructions to build the TaLoS library and the sample
 applications. We assume that the path to the repository is `${PROJECT_ROOT}`
-(eg `/home/<username>/talos/`). We also assume that the Intel SGX SDK has
-already been installed, in `${SGX_SDK_ROOT}`.
+(eg `/home/<username>/talos/`).
 
 ### Compiling the TaLoS Library
 
@@ -89,12 +88,19 @@ This creates three files:
   current directory when launching the application. The easiest way to ensure
   this is to create a symbolic link, as shown in the next sections.
 
-Finally, we need to create several symbolic links in
-`${PROJECT_ROOT}/src/libressl-2.4.1/lib` to the untrusted TaLoS library file:
+Finally, several symbolic links to the untrusted TaLoS library file have to be
+created in `${PROJECT_ROOT}/src/libressl-2.4.1/lib` :
 ```bash
 make -f Makefile.nosgx install # without SGX
 make -f Makefile.sgx install # with SGX, simulator or hardware mode
 ```
+
+Note that, since the SGX SDK v2.0, the SDK libraries make calls to OpenSSL in
+simulation mode to emulate cryptographic functions that would normally happen
+inside the enclave. However, as TaLoS replaces OpenSSL this creates a conflict
+(see [issue #12](https://github.com/lsds/TaLoS/issues/12)). TaLoS, when created
+in simulation mode, separately loads the system OpenSSL library. The path is
+defined by the `OPENSSL_LIBRARY_PATH` macro in `enclaveshim_config.h`.
 
 ### Using TaLoS with Nginx
 
@@ -110,13 +116,10 @@ We assume that you have downloaded and extracted Nginx to `${PROJECT_ROOT}/src/n
 
 You then need to edit `objs/Makefile`:
 
-1. check that the path for the include directory of libressl is correct in `ALL_INCS` and `CORE_INCS`.
-   In particular, the includes of the form `-I ${PROJECT_ROOT}/src/libressl-2.4.1/.openssl/include`
-   must be replaced by `-I ${PROJECT_ROOT}/src/libressl-2.4.1/include`. It might also be necessary to
-   include `${PROJECT_ROOT}/libressl-2.4.1/crypto` and `${SGX_SDK_ROOT}/include`.
+1. check that the path for the include directory of libressl is correct in `ALL_INCS` and `CORE_INCS`;
 
-2. remove the `include/openssl/ssl.h` line in `CORE_DEPS` and the
-   `include/openssl/ssl.h` rule (we have already compiled libressl);
+2. remove the `include/openssl/ssh.h` line in `CORE_DEPS` and the
+   `include/openssl/ssh.h` rule (we have already compiled libressl);
 
 3. in `objs/nginx`, for the LINK phase, update the following line with the
    correct path to `libssl.a` and `libcrypto.a` and add `-lsgx_urts
@@ -197,7 +200,7 @@ $ ln -s ../../../libressl-2.4.1/lib/libcrypto.so install/lib/libcrypto.so
 ```
 
 Finally, you can use the following command to start Apache:
-```
+```bash
 $ ./install/bin/httpd -X #-> only 1 process, no fork
 ```
 
@@ -205,6 +208,12 @@ You can access web pages with:
 ```bash
 $ wget --no-check-certificate https://localhost:7778/index.html
 ```
+
+Note that, by default, TaLoS is compiled for 50 concurrent threads inside the
+enclave (see `TCSNum` in `enclave.config.xml`) while Apache might use hundreds
+of threads (see the worker module options in
+`http-2.4.23/install/config/extra/http-mpm.conf`). You might want to make
+these numbers consistent.
 
 ### Using TaLoS with Squid
 
@@ -259,7 +268,6 @@ $ wget --no-check-certificate --debug --verbose -e use_proxy=on -e https_proxy=l
   error happens when the untrusted library of TaLoS does not export the symbol
   `SSL_function`. To fix this, you need to add the definition of the function
   in `enclaveshim_ecalls.c` and its declaration in `enclaveshim_ecalls.h`:
-
 ```c
 // we assume the following prototype for SSL_function:
 int SSL_function(SSL* ssl, void* args) {
@@ -267,6 +275,22 @@ int SSL_function(SSL* ssl, void* args) {
    return 0;
 }
 ```
+
+- when compiling Apache you might encounter the following warning. In addition,
+Apache might fail to load the SSL module because the `RAND_egd` function is not
+defined. This is due to the configure step that uses the system OpenSSL headers
+instead of TaLoS ones. To fix this, you need to undefine the `HAVE_RAND_EGD`
+macro in `http-2.4.23/include/ap_config_auto.h`.
+```c
+ssl_engine_rand.c: In function 'ssl_rand_seed':
+ssl_engine_rand.c:90:26: warning: implicit declaration of function 'RAND_egd' [-Wimplicit-function-declaration]
+                 if ((n = RAND_egd(pRandSeed->cpPath)) == -1)
+```
+
+- In simulation mode and when compiling TaLoS as a shared library, Apache fails
+with a call to `free()` inside the enclave when processing an HTTPS request.
+Other modes (static library and/or hardware mode) are not affected.
+
 
 ## Documentation
 
@@ -387,8 +411,9 @@ BIO* ecall_SSL_get_wbio(const SSL *s)
   SSL* out_s = (SSL*)s;
 
   // retrieve the in-enclave structure from the hashmap
-  hashmap* m = get_ssl_hardening();
-  SSL* in_s = (SSL*) hashmapGet(m, (unsigned long)out_s);
+  sgx_spin_lock(&ssl_hardening_map_lock);
+  SSL* in_s = (SSL*) hashmapGet(ssl_hardening_map, (unsigned long)out_s);
+  sgx_spin_unlock(&ssl_hardening_map_lock);
 
   // copy fields from out structure to in structure
   SSL_copy_fields_to_in_struct(in_s, out_s);

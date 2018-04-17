@@ -83,6 +83,14 @@ else
 	App_C_Flags += -DNDEBUG -UEDEBUG -UDEBUG
 endif
 
+# Hack with SGX SDK >1.9 that makes calls to OpenSSL during 
+# enclave creation
+ifeq ($(SGX_MODE), HW)
+	Enclaveshim_SGX_mode := -USGX_MODE_SIM
+else
+	Enclaveshim_SGX_mode := -DSGX_MODE_SIM
+endif
+
 enclave_u.c: $(SGX_EDGER8R) enclave.edl
 	@$(SGX_EDGER8R) --untrusted enclave.edl --search-path . --search-path $(SGX_SDK)/include
 	@echo "GEN  =>  $@"
@@ -100,7 +108,7 @@ ecall_queue-nosgx.o: ecall_queue.c
 	@echo "CC   <=  $<"
 
 enclaveshim_ecalls.o: enclaveshim_ecalls.c 
-	@$(CC) $(App_C_Flags) -I../include -I$(SGX_SDK)/include -c $< -o $@
+	@$(CC) $(App_C_Flags) $(Enclaveshim_SGX_mode) -I../include -I$(SGX_SDK)/include -c $< -o $@
 	@echo "CC   <=  $<"
 
 ocalls.o: ocalls.c

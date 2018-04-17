@@ -20,6 +20,10 @@
 #ifndef ENCLAVESHIM_CONFIG_H
 #define ENCLAVESHIM_CONFIG_H
 
+#ifdef SGX_MODE_SIM
+#define OPENSSL_LIBRARY_PATH "/usr/lib/x86_64-linux-gnu/libssl.so"
+#endif
+
 #undef USE_ASYNC_ECALLS_OCALLS // define it to use the asynchronous queues for ecalls and ocalls
 
 #undef COMPILE_OPTIMISATION_FOR_APACHE // define this macro to remove a few unnecessary ocalls for Apache (but needed by nginx/squid)

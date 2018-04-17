@@ -20,6 +20,7 @@
 #include <sys/types.h>
 #include <pwd.h>
 #include <pthread.h>
+#include <dlfcn.h>
 
 #include "sgx_urts.h"
 #include "enclaveshim_ecalls.h"
@@ -333,9 +334,30 @@ void* async_ecall_busy_waiter(void* arg) {
 	}
 }
 
+#ifdef SGX_MODE_SIM
+static void* ssllib_handler = NULL;
+
+void* load_original_ssl_function(char *name) {
+	ssllib_handler = dlopen(OPENSSL_LIBRARY_PATH, RTLD_LAZY | RTLD_LOCAL | RTLD_DEEPBIND);
+	if (!ssllib_handler) {
+		printf("Cannot open shared library libssl.so: %s\n", dlerror());
+		exit(1);
+	}
+
+	dlerror(); // clear existing errors
+	void* addr = dlsym(ssllib_handler, name);
+	char* err = dlerror();
+	if (err) {
+		printf("dlsym error: %s\n", err);
+		exit(1);
+	}
+	return addr;
+}
+#endif
+
 void tls_processing_module_init() {
 	// this is the only ecall that doesn't call initialize_library
-	// ass tls_processing_module_init is called from initialize_library
+	// as tls_processing_module_init is called from initialize_library
 	log_enter_ecall(__func__);
 	sgx_status_t ret = SGX_ERROR_UNEXPECTED;
 
@@ -348,13 +370,6 @@ void tls_processing_module_init() {
 }
 
 void initialize_library(void) {
-	if (initialize_enclave() < 0) {
-		printf("Enclave initialization error!\n");
-		exit(-1);
-	}
-
-	init_clock_mhz();
-	
 	// Apache loads the mod_ssl.so module twice, which causes pthread to segfault
 	// so initialize the queue and threads only on the second load
 #ifdef USE_ASYNC_ECALLS_OCALLS
@@ -405,6 +420,21 @@ void initialize_library(void) {
 	if (modsslload == 1)
 	{
 #endif
+		if (initialize_enclave() < 0) {
+			printf("Enclave initialization error!\n");
+			exit(-1);
+		}
+
+#ifdef SGX_MODE_SIM
+		// not needed anymore
+		if (ssllib_handler != NULL) {
+			dlclose(ssllib_handler);
+			ssllib_handler = NULL;
+		}
+#endif
+
+		init_clock_mhz();
+
 		tls_processing_module_init();
 #ifdef USE_ASYNC_ECALLS_OCALLS
 	}
@@ -1054,7 +1084,14 @@ int	EVP_DecryptInit_ex(EVP_CIPHER_CTX *ctx,const EVP_CIPHER *cipher, ENGINE *imp
 
 int	EVP_DigestFinal_ex(EVP_MD_CTX *ctx,unsigned char *md,unsigned int *s) {
    if (global_eid == 0) {
-   	initialize_library();
+#ifdef SGX_MODE_SIM
+		//SDK >v1.9, sim mode, this call is made by the SGX SDK while it creates the enclave and must
+		//call the original OpenSSL function
+		int (*EVP_DigestFinal_ex_original)(EVP_MD_CTX*, unsigned char*, unsigned int*) = load_original_ssl_function("EVP_DigestFinal_ex");
+		return EVP_DigestFinal_ex_original(ctx, md, s);
+#else
+		initialize_library();
+#endif
    }
 
    log_enter_ecall(__func__);
@@ -1071,7 +1108,14 @@ int	EVP_DigestFinal_ex(EVP_MD_CTX *ctx,unsigned char *md,unsigned int *s) {
 
 int	EVP_DigestInit_ex(EVP_MD_CTX *ctx, const EVP_MD *type, ENGINE *impl) {
    if (global_eid == 0) {
-   	initialize_library();
+#ifdef SGX_MODE_SIM
+		//SDK >v1.9, sim mode, this call is made by the SGX SDK while it creates the enclave and must
+		//call the original OpenSSL function
+		int (*EVP_DigestInit_ex_original)(EVP_MD_CTX*, const EVP_MD*, ENGINE*) = load_original_ssl_function("EVP_DigestInit_ex");
+		return EVP_DigestInit_ex_original(ctx, type, impl);
+#else
+		initialize_library();
+#endif
    }
 
    log_enter_ecall(__func__);
@@ -1088,7 +1132,14 @@ int	EVP_DigestInit_ex(EVP_MD_CTX *ctx, const EVP_MD *type, ENGINE *impl) {
 
 int	EVP_DigestUpdate(EVP_MD_CTX *ctx,const void *d, size_t cnt) {
    if (global_eid == 0) {
-   	initialize_library();
+#ifdef SGX_MODE_SIM
+		//SDK >v1.9, sim mode, this call is made by the SGX SDK while it creates the enclave and must
+		//call the original OpenSSL function
+		int (*EVP_DigestUpdate_original)(EVP_MD_CTX*, const void*, size_t) = load_original_ssl_function("EVP_DigestUpdate");
+		return EVP_DigestUpdate_original(ctx, d, cnt);
+#else
+		initialize_library();
+#endif
    }
 
    log_enter_ecall(__func__);
@@ -1110,8 +1161,15 @@ int	EVP_EncryptInit_ex(EVP_CIPHER_CTX *ctx,const EVP_CIPHER *cipher, ENGINE *imp
 
 EVP_MD_CTX *EVP_MD_CTX_create(void) {
    if (global_eid == 0) {
-   	initialize_library();
-   }
+#ifdef SGX_MODE_SIM
+		//SDK >v1.9, sim mode, this call is made by the SGX SDK while it creates the enclave and must
+		//call the original OpenSSL function
+		EVP_MD_CTX* (*EVP_MD_CTX_create_original)(void) = load_original_ssl_function("EVP_MD_CTX_create");
+		return EVP_MD_CTX_create_original();
+#else
+		initialize_library();
+#endif
+	}
 
    log_enter_ecall(__func__);
 	EVP_MD_CTX* retval;
@@ -1127,7 +1185,14 @@ EVP_MD_CTX *EVP_MD_CTX_create(void) {
 
 void	EVP_MD_CTX_destroy(EVP_MD_CTX *ctx) {
    if (global_eid == 0) {
-   	initialize_library();
+#ifdef SGX_MODE_SIM
+		//SDK >v1.9, sim mode, this call is made by the SGX SDK while it creates the enclave and must
+		//call the original OpenSSL function
+		void (*EVP_MD_CTX_destroy_original)(EVP_MD_CTX*) = load_original_ssl_function("EVP_MD_CTX_destroy");
+		return EVP_MD_CTX_destroy_original(ctx);
+#else
+		initialize_library();
+#endif
    }
 
    log_enter_ecall(__func__);
@@ -1172,6 +1237,15 @@ const EVP_MD *EVP_sha1(void) {
 }
 
 const EVP_MD *EVP_sha256(void) {
+#ifdef SGX_MODE_SIM
+	if (global_eid == 0) {
+		//SDK >v1.9, sim mode, this call is made by the SGX SDK while it creates the enclave and must
+		//call the original OpenSSL function
+		const EVP_MD* (*EVP_sha256_original)(void) = load_original_ssl_function("EVP_sha256");
+		return EVP_sha256_original();
+	}
+#endif
+
 	fprintf(stderr, "%s:%i need to implement ecall %s\n", __FILE__, __LINE__, __func__);
 	return 0;
 }
@@ -2841,7 +2915,15 @@ OCSP_RESPONSE * d2i_OCSP_RESPONSE(OCSP_RESPONSE **a, const unsigned char **in, l
 
 void OPENSSL_add_all_algorithms_noconf(void) {
    if (global_eid == 0) {
-   	initialize_library();
+#ifdef SGX_MODE_SIM
+		//SDK >v1.9, sim mode, do not initialize the library as this call is made by the SGX SDK
+		//while it is loading and would fail to create the enclave.
+		void (*OPENSSL_add_all_algorithms_noconf_original)(void) = load_original_ssl_function("OPENSSL_add_all_algorithms_noconf");
+		OPENSSL_add_all_algorithms_noconf_original();
+		return;
+#else
+		initialize_library();
+#endif
    }
 
    log_enter_ecall(__func__);
@@ -4906,7 +4988,15 @@ void ERR_free_strings(void) {
 
 void ERR_load_crypto_strings(void) {
    if (global_eid == 0) {
-   	initialize_library();
+#ifdef SGX_MODE_SIM
+		//SDK >v1.9, sim mode, do not initialize the library as this call is made by the SGX SDK
+		//while it is loading and would fail to create the enclave.
+		void (*ERR_load_crypto_strings_original)(void) = load_original_ssl_function("ERR_load_crypto_strings");
+		ERR_load_crypto_strings_original();
+		return;
+#else
+		initialize_library();
+#endif
    }
 
    log_enter_ecall(__func__);
