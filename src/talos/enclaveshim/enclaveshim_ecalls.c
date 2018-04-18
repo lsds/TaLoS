@@ -338,10 +338,12 @@ void* async_ecall_busy_waiter(void* arg) {
 static void* ssllib_handler = NULL;
 
 void* load_original_ssl_function(char *name) {
-	ssllib_handler = dlopen(OPENSSL_LIBRARY_PATH, RTLD_LAZY | RTLD_LOCAL | RTLD_DEEPBIND);
-	if (!ssllib_handler) {
-		printf("Cannot open shared library libssl.so: %s\n", dlerror());
-		exit(1);
+	if (!ssllib_handler) {	
+		ssllib_handler = dlopen(OPENSSL_LIBRARY_PATH, RTLD_LAZY | RTLD_LOCAL | RTLD_DEEPBIND);
+		if (!ssllib_handler) {
+			printf("Cannot open shared library libssl.so: %s\n", dlerror());
+			exit(1);
+		}
 	}
 
 	dlerror(); // clear existing errors

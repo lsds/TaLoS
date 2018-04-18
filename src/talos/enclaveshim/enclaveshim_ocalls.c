@@ -551,7 +551,6 @@ int stat64(const char *path, struct stat *buf) {
 }
 */
 
-
 /*
 int lstat64(const char *pathname, struct stat *buf) {
 	int retval;

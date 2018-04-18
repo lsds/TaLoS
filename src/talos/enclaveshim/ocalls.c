@@ -442,6 +442,7 @@ DH* ocall_SSL_CTX_set_tmp_dh_cb(SSL *ssl, int is_export, int keylength, void* cb
 	log_exit_ocall(__func__);
 	return retval;
 }
+
 int ocall_ssl_ctx_set_next_proto_select_cb(SSL *s, unsigned char **out, unsigned char *outlen, const unsigned char *in, unsigned int inlen, void *arg, void* cb) {
 	//ocall_println_string(__func__);
 	log_enter_ocall(__func__);
@@ -450,5 +451,4 @@ int ocall_ssl_ctx_set_next_proto_select_cb(SSL *s, unsigned char **out, unsigned
 	int retval = callback(s, out, outlen, in, inlen, arg);
 	log_exit_ocall(__func__);
 	return retval;
-
 }
