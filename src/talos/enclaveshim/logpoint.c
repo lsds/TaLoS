@@ -2,10 +2,10 @@
  * Copyright 2017 Imperial College London
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at   
- * 
+ * You may obtain a copy of the License at
+ *
  *      http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied
@@ -62,7 +62,7 @@ static thread_mutex_t bio2type_mutex = THREAD_MUTEX_INITIALIZER;
 
 #ifdef DO_LOGGING
 
-void log_https_request(const SSL* s, char* req, unsigned int len) {
+void log_https_request(const SSL* s, char* req, int* len) {
 #ifdef LOG_FOR_SQUID
 	long type;
 	pthread_mutex_lock(&bio2type_mutex);
@@ -73,10 +73,10 @@ void log_https_request(const SSL* s, char* req, unsigned int len) {
 		return; // Squid, this is not a message between the client and the proxy, so don't log
 	}
 #endif
-	my_printf("%s SSL %p, there is a request of %d bytes\n", __func__, s, len);
+	my_printf("%s SSL %p, there is a request of %d bytes\n", __func__, s, len*);
 }
 
-void log_https_reply(const SSL* s, char* rep, unsigned int len) {
+void log_https_reply(const SSL* s, char* rep, int* len) {
 #ifdef LOG_FOR_SQUID
 	long type;
 	pthread_mutex_lock(&bio2type_mutex);
@@ -87,7 +87,7 @@ void log_https_reply(const SSL* s, char* rep, unsigned int len) {
 		return; // Squid, this is not a message between the client and the proxy, so don't log
 	}
 #endif
-	my_printf("%s SSL %p, there is a reply of %d bytes\n", __func__, s, len);
+	my_printf("%s SSL %p, there is a reply of %d bytes\n", __func__, s, len*);
 }
 
 void log_set_ssl_type(const void* b, const long type) {
@@ -133,4 +133,3 @@ void tls_processing_module_init() {
 	tls_processing_register_free_connection_cb(log_free_connection);
 #endif
 }
-
