@@ -14,6 +14,7 @@
  */
 
 #include <stdio.h>
+#include <string.h>
 
 #include "openssl/ossl_typ.h"
 #include "tls_processing_interface.h"
@@ -21,7 +22,7 @@
 #include "enclaveshim_config.h"
 
 // define this macro to activate this module
-#undef DO_LOGGING
+#define DO_LOGGING
 
 // define this macro if you are using this module with Squid
 #undef LOG_FOR_SQUID
@@ -73,9 +74,8 @@ void log_https_request(const SSL* s, char* req, int* len) {
 		return; // Squid, this is not a message between the client and the proxy, so don't log
 	}
 #endif
-	my_printf("%s SSL %p, there is a request of %d bytes\n", __func__, s, len*);
+	my_printf("%s SSL %p, there is a request of %d bytes\n", __func__, s, *len);
 }
-
 void log_https_reply(const SSL* s, char* rep, int* len) {
 #ifdef LOG_FOR_SQUID
 	long type;
@@ -87,7 +87,7 @@ void log_https_reply(const SSL* s, char* rep, int* len) {
 		return; // Squid, this is not a message between the client and the proxy, so don't log
 	}
 #endif
-	my_printf("%s SSL %p, there is a reply of %d bytes\n", __func__, s, len*);
+	my_printf("%s SSL %p, there is a reply of %d bytes\n", __func__, s, *len);
 }
 
 void log_set_ssl_type(const void* b, const long type) {
