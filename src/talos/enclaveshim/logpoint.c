@@ -22,7 +22,7 @@
 #include "enclaveshim_config.h"
 
 // define this macro to activate this module
-#define DO_LOGGING
+#undef DO_LOGGING
 
 // define this macro if you are using this module with Squid
 #undef LOG_FOR_SQUID
