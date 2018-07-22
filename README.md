@@ -146,7 +146,7 @@ $ ln -s ../libressl-2.4.1/crypto/enclave.signed.so
 
 To start Nginx (`LD_LIBRARY_PATH` is needed only if you use the TaLoS shared library):
 ```bash
-$ LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:$(pwd)/../libressl-2.4.1/crypto ./objs/nginx
+$ LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:$(pwd)/../libressl-2.4.1/lib ./objs/nginx
 ```
 
 You should be able to access the web pages with:
