@@ -825,7 +825,7 @@ enclave: enclave_t.o enclaveshim_ocalls.o tls_processing_interface.o ecall_queue
 	@echo "LINK =>  $(Enclave_Name)"
 
 signed_enclave: enclave
-	@$(SGX_ENCLAVE_SIGNER) sign -key enclave_private.pem -enclave $(Enclave_Name) -out $(Signed_Enclave_Name) -config $(Enclave_Config_File)
+	@$(SGX_ENCLAVE_SIGNER) sign -ignore-init-sec-error -key enclave_private.pem -enclave $(Enclave_Name) -out $(Signed_Enclave_Name) -config $(Enclave_Config_File)
 	@echo "SIGN =>  $(Signed_Enclave_Name)"
 	@rm $(Enclave_Name)
 
