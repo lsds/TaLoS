@@ -1,0 +1,9 @@
+--- ./crypto/mem_clr.c	2019-09-04 14:50:24.054778193 +0900
++++ ../talos/./crypto/mem_clr.c	2019-09-04 14:49:12.066301032 +0900
+@@ -7,5 +7,5 @@
+ void
+ OPENSSL_cleanse(void *ptr, size_t len)
+ {
+-	explicit_bzero(ptr, len);
++	bzero(ptr, len);
+ }

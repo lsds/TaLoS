@@ -1,0 +1,20 @@
+--- ./crypto/gost/streebog.c	2019-09-04 14:50:24.054778193 +0900
++++ ../talos/./crypto/gost/streebog.c	2019-09-04 14:49:12.002300607 +0900
+@@ -1455,7 +1455,7 @@
+ 	STREEBOG256_Init(&c);
+ 	STREEBOG256_Update(&c, d, n);
+ 	STREEBOG256_Final(md, &c);
+-	explicit_bzero(&c, sizeof(c));
++	bzero(&c, sizeof(c));
+ 	return (md);
+ }
+ 
+@@ -1470,7 +1470,7 @@
+ 	STREEBOG512_Init(&c);
+ 	STREEBOG512_Update(&c, d, n);
+ 	STREEBOG512_Final(md, &c);
+-	explicit_bzero(&c, sizeof(c));
++	bzero(&c, sizeof(c));
+ 	return (md);
+ }
+ 

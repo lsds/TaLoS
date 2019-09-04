@@ -1,0 +1,11 @@
+--- ./crypto/asn1/a_bitstr.c	2019-09-04 14:50:24.010777901 +0900
++++ ../talos/./crypto/asn1/a_bitstr.c	2019-09-04 14:48:30.558025463 +0900
+@@ -118,7 +118,7 @@
+ 
+ 	*(p++) = (unsigned char)bits;
+ 	d = a->data;
+-	memcpy(p, d, len);
++	memcpy(p, d, (unsigned)len);
+ 	p += len;
+ 	if (len > 0)
+ 		p[-1]&=(0xff << bits);

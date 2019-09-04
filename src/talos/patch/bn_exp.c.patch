@@ -1,0 +1,11 @@
+--- ./crypto/bn/bn_exp.c	2019-09-04 14:50:24.030778034 +0900
++++ ../talos/./crypto/bn/bn_exp.c	2019-09-04 14:49:11.862299678 +0900
+@@ -825,7 +825,7 @@
+ 	if ((in_mont == NULL) && (mont != NULL))
+ 		BN_MONT_CTX_free(mont);
+ 	if (powerbuf != NULL) {
+-		explicit_bzero(powerbuf, powerbufLen);
++		bzero(powerbuf, powerbufLen);
+ 		free(powerbufFree);
+ 	}
+ 	BN_CTX_end(ctx);

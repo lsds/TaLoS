@@ -1,0 +1,11 @@
+--- ./crypto/ecdh/ech_lib.c	2019-09-04 14:50:24.046778140 +0900
++++ ../talos/./crypto/ecdh/ech_lib.c	2019-09-04 14:49:11.914300023 +0900
+@@ -182,7 +182,7 @@
+ 
+ 	CRYPTO_free_ex_data(CRYPTO_EX_INDEX_ECDH, r, &r->ex_data);
+ 
+-	explicit_bzero((void *)r, sizeof(ECDH_DATA));
++	bzero((void *)r, sizeof(ECDH_DATA));
+ 
+ 	free(r);
+ }

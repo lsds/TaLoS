@@ -1,0 +1,20 @@
+--- ./crypto/evp/evp_enc.c	2019-09-04 14:50:24.050778166 +0900
++++ ../talos/./crypto/evp/evp_enc.c	2019-09-04 14:49:11.970300394 +0900
+@@ -564,7 +564,7 @@
+ 			return 0;
+ 		/* Cleanse cipher context data */
+ 		if (c->cipher_data)
+-			explicit_bzero(c->cipher_data, c->cipher->ctx_size);
++			bzero(c->cipher_data, c->cipher->ctx_size);
+ 	}
+ 	free(c->cipher_data);
+ #ifndef OPENSSL_NO_ENGINE
+@@ -573,7 +573,7 @@
+ 		 * functional reference we held for this reason. */
+ 		ENGINE_finish(c->engine);
+ #endif
+-	explicit_bzero(c, sizeof(EVP_CIPHER_CTX));
++	bzero(c, sizeof(EVP_CIPHER_CTX));
+ 	return 1;
+ }
+ 

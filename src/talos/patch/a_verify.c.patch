@@ -1,0 +1,11 @@
+--- ./crypto/asn1/a_verify.c	2019-09-04 14:50:24.014777928 +0900
++++ ../talos/./crypto/asn1/a_verify.c	2019-09-04 14:49:11.838299519 +0900
+@@ -153,7 +153,7 @@
+ 		goto err;
+ 	}
+ 
+-	explicit_bzero(buf_in, (unsigned int)inl);
++	bzero(buf_in, (unsigned int)inl);
+ 	free(buf_in);
+ 
+ 	if (EVP_DigestVerifyFinal(&ctx, signature->data,

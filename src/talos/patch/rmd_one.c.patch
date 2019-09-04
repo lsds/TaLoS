@@ -1,0 +1,11 @@
+--- ./crypto/ripemd/rmd_one.c	2019-09-04 14:50:24.058778219 +0900
++++ ../talos/./crypto/ripemd/rmd_one.c	2019-09-04 14:49:12.118301377 +0900
+@@ -72,7 +72,7 @@
+ 		return NULL;
+ 	RIPEMD160_Update(&c,d,n);
+ 	RIPEMD160_Final(md,&c);
+-	explicit_bzero(&c,sizeof(c));
++	bzero(&c,sizeof(c));
+ 	return(md);
+ 	}
+ 

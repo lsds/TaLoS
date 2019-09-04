@@ -1,0 +1,12 @@
+--- ./crypto/pem/pem_info.c	2019-09-04 14:50:24.054778193 +0900
++++ ../talos/./crypto/pem/pem_info.c	2019-09-04 14:49:12.078301111 +0900
+@@ -400,7 +400,7 @@
+ 	ret = 1;
+ 
+ err:
+-	explicit_bzero((char *)&ctx, sizeof(ctx));
+-	explicit_bzero(buf, PEM_BUFSIZE);
++	bzero((char *)&ctx, sizeof(ctx));
++	bzero(buf, PEM_BUFSIZE);
+ 	return (ret);
+ }

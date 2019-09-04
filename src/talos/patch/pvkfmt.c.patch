@@ -1,0 +1,38 @@
+--- ./crypto/pem/pvkfmt.c	2019-09-04 14:50:24.058778219 +0900
++++ ../talos/./crypto/pem/pvkfmt.c	2019-09-04 14:49:12.102301271 +0900
+@@ -773,7 +773,7 @@
+ 			if (!EVP_DecryptInit_ex(&cctx, EVP_rc4(), NULL, keybuf,
+ 			    NULL))
+ 				goto err;
+-			explicit_bzero(keybuf, 20);
++			bzero(keybuf, 20);
+ 			if (!EVP_DecryptUpdate(&cctx, q, &enctmplen, p, inlen))
+ 				goto err;
+ 			if (!EVP_DecryptFinal_ex(&cctx, q + enctmplen,
+@@ -785,7 +785,7 @@
+ 				goto err;
+ 			}
+ 		} else
+-			explicit_bzero(keybuf, 20);
++			bzero(keybuf, 20);
+ 		p = enctmp;
+ 	}
+ 
+@@ -831,7 +831,7 @@
+ 
+ err:
+ 	if (buf) {
+-		explicit_bzero(buf, buflen);
++		bzero(buf, buflen);
+ 		free(buf);
+ 	}
+ 	return ret;
+@@ -902,7 +902,7 @@
+ 		p = salt + PVK_SALTLEN + 8;
+ 		if (!EVP_EncryptInit_ex(&cctx, EVP_rc4(), NULL, keybuf, NULL))
+ 			goto error;
+-		explicit_bzero(keybuf, 20);
++		bzero(keybuf, 20);
+ 		if (!EVP_DecryptUpdate(&cctx, p, &enctmplen, p, pklen - 8))
+ 			goto error;
+ 		if (!EVP_DecryptFinal_ex(&cctx, p + enctmplen, &enctmplen))

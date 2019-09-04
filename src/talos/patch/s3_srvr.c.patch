@@ -1,0 +1,29 @@
+--- ./ssl/s3_srvr.c	2019-09-04 14:50:24.074778325 +0900
++++ ../talos/./ssl/s3_srvr.c	2019-09-04 14:49:18.690344977 +0900
+@@ -1707,7 +1707,7 @@
+ 		    s->method->ssl3_enc->generate_master_secret(s,
+ 		    s->session->master_key,
+ 		    p, i);
+-		explicit_bzero(p, i);
++		bzero(p, i);
+ 	} else if (alg_k & SSL_kDHE) {
+ 		if (2 > n)
+ 			goto truncated;
+@@ -1758,7 +1758,7 @@
+ 		s->session->master_key_length =
+ 		    s->method->ssl3_enc->generate_master_secret(
+ 		        s, s->session->master_key, p, i);
+-		explicit_bzero(p, i);
++		bzero(p, i);
+ 	} else
+ 
+ 	if (alg_k & (SSL_kECDHE|SSL_kECDHr|SSL_kECDHe)) {
+@@ -1902,7 +1902,7 @@
+ 		s->session->master_key_length = s->method->ssl3_enc-> \
+ 		    generate_master_secret(s, s->session->master_key, p, i);
+ 
+-		explicit_bzero(p, i);
++		bzero(p, i);
+ 		return (ret);
+ 	} else
+ 	if (alg_k & SSL_kGOST) {

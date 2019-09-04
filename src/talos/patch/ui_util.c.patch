@@ -1,0 +1,11 @@
+--- ./crypto/ui/ui_util.c	2019-09-04 14:50:24.062778246 +0900
++++ ../talos/./crypto/ui/ui_util.c	2019-09-04 14:49:12.150301589 +0900
+@@ -67,7 +67,7 @@
+ 
+ 	ret = UI_UTIL_read_pw(buf, buff, (length > BUFSIZ) ? BUFSIZ : length,
+ 	    prompt, verify);
+-	explicit_bzero(buff, BUFSIZ);
++	bzero(buff, BUFSIZ);
+ 	return (ret);
+ }
+ 

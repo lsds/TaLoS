@@ -1,0 +1,20 @@
+--- ./crypto/des/str2key.c	2019-09-04 14:50:24.042778113 +0900
++++ ../talos/./crypto/des/str2key.c	2019-09-04 14:49:11.906299970 +0900
+@@ -95,7 +95,7 @@
+ 	DES_set_key_unchecked(key,&ks);
+ #endif
+ 	DES_cbc_cksum((const unsigned char*)str,key,length,&ks,key);
+-	explicit_bzero(&ks,sizeof(ks));
++	bzero(&ks,sizeof(ks));
+ 	DES_set_odd_parity(key);
+ 	}
+ 
+@@ -168,7 +168,7 @@
+ 	DES_set_key_unchecked(key2,&ks);
+ #endif
+ 	DES_cbc_cksum((const unsigned char*)str,key2,length,&ks,key2);
+-	explicit_bzero(&ks,sizeof(ks));
++	bzero(&ks,sizeof(ks));
+ 	DES_set_odd_parity(key1);
+ 	DES_set_odd_parity(key2);
+ 	}

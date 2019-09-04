@@ -1,0 +1,11 @@
+--- ./crypto/pem/pem_seal.c	2019-09-04 14:50:24.058778219 +0900
++++ ../talos/./crypto/pem/pem_seal.c	2019-09-04 14:49:12.094301217 +0900
+@@ -117,7 +117,7 @@
+ 
+ err:
+ 	free(s);
+-	explicit_bzero(key, EVP_MAX_KEY_LENGTH);
++	bzero(key, EVP_MAX_KEY_LENGTH);
+ 	return (ret);
+ }
+ 

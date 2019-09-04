@@ -1,0 +1,12 @@
+--- ./crypto/pkcs12/p12_crpt.c	2019-09-04 14:50:24.058778219 +0900
++++ ../talos/./crypto/pkcs12/p12_crpt.c	2019-09-04 14:49:12.102301271 +0900
+@@ -112,7 +112,7 @@
+ 	}
+ 	PBEPARAM_free(pbe);
+ 	ret = EVP_CipherInit_ex(ctx, cipher, NULL, key, iv, en_de);
+-	explicit_bzero(key, EVP_MAX_KEY_LENGTH);
+-	explicit_bzero(iv, EVP_MAX_IV_LENGTH);
++	bzero(key, EVP_MAX_KEY_LENGTH);
++	bzero(iv, EVP_MAX_IV_LENGTH);
+ 	return ret;
+ }

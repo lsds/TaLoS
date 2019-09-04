@@ -1,0 +1,11 @@
+--- ./crypto/dsa/dsa_asn1.c	2019-09-04 14:50:24.042778113 +0900
++++ ../talos/./crypto/dsa/dsa_asn1.c	2019-09-04 14:49:11.910299997 +0900
+@@ -431,7 +431,7 @@
+ 	ret = DSA_do_verify(dgst, dgst_len, s, dsa);
+ err:
+ 	if (derlen > 0) {
+-		explicit_bzero(der, derlen);
++		bzero(der, derlen);
+ 		free(der);
+ 	}
+ 	DSA_SIG_free(s);

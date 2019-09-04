@@ -1,0 +1,16 @@
+--- ./crypto/ec/ec_mult.c	2019-09-04 14:50:24.042778113 +0900
++++ ../talos/./crypto/ec/ec_mult.c	2019-09-04 14:49:11.938300182 +0900
+@@ -173,11 +173,11 @@
+ 
+ 		for (p = pre->points; *p != NULL; p++) {
+ 			EC_POINT_clear_free(*p);
+-			explicit_bzero(p, sizeof *p);
++			bzero(p, sizeof *p);
+ 		}
+ 		free(pre->points);
+ 	}
+-	explicit_bzero(pre, sizeof *pre);
++	bzero(pre, sizeof *pre);
+ 	free(pre);
+ }
+ 

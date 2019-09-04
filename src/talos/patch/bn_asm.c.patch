@@ -1,0 +1,20 @@
+--- ./crypto/bn/bn_asm.c	2019-09-04 14:50:24.026778007 +0900
++++ ../talos/./crypto/bn/bn_asm.c	2019-09-04 14:49:11.854299625 +0900
+@@ -989,7 +989,7 @@
+ 	}
+ 	memcpy(rp, tp, num * sizeof(BN_ULONG));
+ out:
+-	explicit_bzero(tp, (num + 2) * sizeof(BN_ULONG));
++	bzero(tp, (num + 2) * sizeof(BN_ULONG));
+ 	free(tp);
+ 	return 1;
+ }
+@@ -1081,7 +1081,7 @@
+ 	}
+ 	memcpy(rp, tp, num * sizeof(BN_ULONG));
+ out:
+-	explicit_bzero(tp, (num + 2) * sizeof(BN_ULONG));
++	bzero(tp, (num + 2) * sizeof(BN_ULONG));
+ 	free(tp);
+ 	return 1;
+ }

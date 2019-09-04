@@ -1,0 +1,11 @@
+--- ./crypto/pkcs12/p12_key.c	2019-09-04 14:50:24.058778219 +0900
++++ ../talos/./crypto/pkcs12/p12_key.c	2019-09-04 14:49:12.106301297 +0900
+@@ -89,7 +89,7 @@
+ 	if (ret <= 0)
+ 		return 0;
+ 	if (unipass) {
+-		explicit_bzero(unipass, uniplen);
++		bzero(unipass, uniplen);
+ 		free(unipass);
+ 	}
+ 	return ret;

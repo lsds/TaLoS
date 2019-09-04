@@ -1,0 +1,19 @@
+--- ./crypto/evp/evp_key.c	2019-09-04 14:50:24.050778166 +0900
++++ ../talos/./crypto/evp/evp_key.c	2019-09-04 14:49:11.974300421 +0900
+@@ -116,7 +116,7 @@
+ 	}
+ 	ret = UI_process(ui);
+ 	UI_free(ui);
+-	explicit_bzero(buff, BUFSIZ);
++	bzero(buff, BUFSIZ);
+ 	return ret;
+ }
+ 
+@@ -201,6 +201,6 @@
+ 
+ err:
+ 	EVP_MD_CTX_cleanup(&c);
+-	explicit_bzero(md_buf, sizeof md_buf);
++	bzero(md_buf, sizeof md_buf);
+ 	return rv;
+ }

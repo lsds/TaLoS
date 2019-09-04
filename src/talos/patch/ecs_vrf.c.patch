@@ -1,0 +1,11 @@
+--- ./crypto/ecdsa/ecs_vrf.c	2019-09-04 14:50:24.046778140 +0900
++++ ../talos/./crypto/ecdsa/ecs_vrf.c	2019-09-04 14:49:11.918300050 +0900
+@@ -108,7 +108,7 @@
+ 
+ err:
+ 	if (derlen > 0) {
+-		explicit_bzero(der, derlen);
++		bzero(der, derlen);
+ 		free(der);
+ 	}
+ 	ECDSA_SIG_free(s);

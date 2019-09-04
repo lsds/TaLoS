@@ -1,0 +1,13 @@
+--- ./crypto/compat/getentropy_osx.c	2019-09-04 14:50:24.038778087 +0900
++++ ../talos/./crypto/compat/getentropy_osx.c	2019-09-04 14:49:11.898299917 +0900
+@@ -418,8 +418,8 @@
+ 		memcpy((char *)buf + i, results, min(sizeof(results), len - i));
+ 		i += min(sizeof(results), len - i);
+ 	}
+-	explicit_bzero(&ctx, sizeof ctx);
+-	explicit_bzero(results, sizeof results);
++	bzero(&ctx, sizeof ctx);
++	bzero(results, sizeof results);
+ 	if (gotdata(buf, len) == 0) {
+ 		errno = save_errno;
+ 		return (0);		/* satisfied */

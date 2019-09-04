@@ -1,0 +1,11 @@
+--- ./crypto/ui/ui_openssl_win.c	2019-09-04 14:50:24.062778246 +0900
++++ ../talos/./crypto/ui/ui_openssl_win.c	2019-09-04 14:49:12.146301563 +0900
+@@ -286,7 +286,7 @@
+ 	if (ps >= 1)
+ 		popsig();
+ 
+-	explicit_bzero(result, BUFSIZ);
++	bzero(result, BUFSIZ);
+ 	return ok;
+ }
+ 

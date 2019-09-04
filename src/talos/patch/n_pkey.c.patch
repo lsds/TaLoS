@@ -1,0 +1,29 @@
+--- ./crypto/asn1/n_pkey.c	2019-09-04 14:50:24.018777954 +0900
++++ ../talos/./crypto/asn1/n_pkey.c	2019-09-04 14:49:11.842299545 +0900
+@@ -281,7 +281,7 @@
+ 	i2d_NETSCAPE_PKEY(pkey, &zz);
+ 
+ 	/* Wipe the private key encoding */
+-	explicit_bzero(pkey->private_key->data, rsalen);
++	bzero(pkey->private_key->data, rsalen);
+ 
+ 	if (cb == NULL)
+ 		cb = EVP_read_pw_string;
+@@ -301,7 +301,7 @@
+ 
+ 	if (!EVP_BytesToKey(EVP_rc4(), EVP_md5(), NULL, buf, i,1, key, NULL))
+ 		goto err;
+-	explicit_bzero(buf, sizeof(buf));
++	bzero(buf, sizeof(buf));
+ 
+ 	/* Encrypt private key in place */
+ 	zz = enckey->enckey->digest->data;
+@@ -398,7 +398,7 @@
+ 
+ 	if (!EVP_BytesToKey(EVP_rc4(), EVP_md5(), NULL, buf, i,1, key, NULL))
+ 		goto err;
+-	explicit_bzero(buf, sizeof(buf));
++	bzero(buf, sizeof(buf));
+ 
+ 	if (!EVP_DecryptInit_ex(&ctx, EVP_rc4(), NULL, key, NULL))
+ 		goto err;

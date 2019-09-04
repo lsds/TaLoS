@@ -1,0 +1,38 @@
+--- ./crypto/asn1/a_object.c	2019-09-04 14:50:24.014777928 +0900
++++ ../talos/./crypto/asn1/a_object.c	2019-09-04 14:48:41.454097834 +0900
+@@ -235,7 +235,7 @@
+ 		return -1;
+ 	i = i2t_ASN1_OBJECT(tmp, tlen, a);
+ 	if (i > (int)(tlen - 1)) {
+-		explicit_bzero(tmp, tlen);
++		bzero(tmp, tlen);
+ 		free(tmp);
+ 		if ((tmp = malloc(i + 1)) == NULL)
+ 			return -1;
+@@ -246,7 +246,7 @@
+ 		i = BIO_write(bp, "<INVALID>", 9);
+ 	else
+ 		i = BIO_write(bp, tmp, i);
+-	explicit_bzero(tmp, tlen);
++	bzero(tmp, tlen);
+ 	free(tmp);
+ 	return (i);
+ }
+@@ -324,7 +324,7 @@
+ 	/* detach data from object */
+ 	data = (unsigned char *)ret->data;
+ 	if (data != NULL)
+-		explicit_bzero(data, ret->length);
++		bzero(data, ret->length);
+ 	free(data);
+ 	data = malloc(length);
+ 	if (data == NULL) {
+@@ -384,7 +384,7 @@
+ 	}
+ 	if (a->flags & ASN1_OBJECT_FLAG_DYNAMIC_DATA) {
+ 		if (a->data != NULL)
+-			explicit_bzero((void *)a->data, a->length);
++			bzero((void *)a->data, a->length);
+ 		free((void *)a->data);
+ 		a->data = NULL;
+ 		a->length = 0;

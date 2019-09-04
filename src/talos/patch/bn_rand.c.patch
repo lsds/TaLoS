@@ -1,0 +1,11 @@
+--- ./crypto/bn/bn_rand.c	2019-09-04 14:50:24.030778034 +0900
++++ ../talos/./crypto/bn/bn_rand.c	2019-09-04 14:49:11.874299758 +0900
+@@ -187,7 +187,7 @@
+ 
+ err:
+ 	if (buf != NULL) {
+-		explicit_bzero(buf, bytes);
++		bzero(buf, bytes);
+ 		free(buf);
+ 	}
+ 	bn_check_top(rnd);

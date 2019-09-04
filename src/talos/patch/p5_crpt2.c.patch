@@ -1,0 +1,11 @@
+--- ./crypto/evp/p5_crpt2.c	2019-09-04 14:50:24.050778166 +0900
++++ ../talos/./crypto/evp/p5_crpt2.c	2019-09-04 14:49:11.978300448 +0900
+@@ -300,7 +300,7 @@
+ 	rv = EVP_CipherInit_ex(ctx, NULL, NULL, key, NULL, en_de);
+ 
+ err:
+-	explicit_bzero(key, keylen);
++	bzero(key, keylen);
+ 	PBKDF2PARAM_free(kdf);
+ 	return rv;
+ }

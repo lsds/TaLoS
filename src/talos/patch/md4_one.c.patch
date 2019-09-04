@@ -1,0 +1,11 @@
+--- ./crypto/md4/md4_one.c	2019-09-04 14:50:24.054778193 +0900
++++ ../talos/./crypto/md4/md4_one.c	2019-09-04 14:49:12.062301005 +0900
+@@ -71,7 +71,7 @@
+ 		return NULL;
+ 	MD4_Update(&c,d,n);
+ 	MD4_Final(md,&c);
+-	explicit_bzero(&c,sizeof(c));
++	bzero(&c,sizeof(c));
+ 	return(md);
+ 	}
+ 

@@ -1,0 +1,38 @@
+--- ./crypto/rsa/rsa_eay.c	2019-09-04 14:50:24.058778219 +0900
++++ ../talos/./crypto/rsa/rsa_eay.c	2019-09-04 14:49:12.126301429 +0900
+@@ -243,7 +243,7 @@
+ 		BN_CTX_free(ctx);
+ 	}
+ 	if (buf != NULL) {
+-		explicit_bzero(buf, num);
++		bzero(buf, num);
+ 		free(buf);
+ 	}
+ 	return r;
+@@ -473,7 +473,7 @@
+ 		BN_CTX_free(ctx);
+ 	}
+ 	if (buf != NULL) {
+-		explicit_bzero(buf, num);
++		bzero(buf, num);
+ 		free(buf);
+ 	}
+ 	return r;
+@@ -608,7 +608,7 @@
+ 		BN_CTX_free(ctx);
+ 	}
+ 	if (buf != NULL) {
+-		explicit_bzero(buf, num);
++		bzero(buf, num);
+ 		free(buf);
+ 	}
+ 	return r;
+@@ -713,7 +713,7 @@
+ 		BN_CTX_free(ctx);
+ 	}
+ 	if (buf != NULL) {
+-		explicit_bzero(buf, num);
++		bzero(buf, num);
+ 		free(buf);
+ 	}
+ 	return r;

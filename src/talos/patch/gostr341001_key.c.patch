@@ -1,0 +1,11 @@
+--- ./crypto/gost/gostr341001_key.c	2019-09-04 14:50:24.050778166 +0900
++++ ../talos/./crypto/gost/gostr341001_key.c	2019-09-04 14:49:11.990300528 +0900
+@@ -105,7 +105,7 @@
+ 	EC_POINT_free(r->pub_key);
+ 	BN_clear_free(r->priv_key);
+ 
+-	explicit_bzero((void *)r, sizeof(GOST_KEY));
++	bzero((void *)r, sizeof(GOST_KEY));
+ 	free(r);
+ }
+ 

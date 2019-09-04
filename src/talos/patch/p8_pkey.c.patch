@@ -1,0 +1,11 @@
+--- ./crypto/asn1/p8_pkey.c	2019-09-04 14:50:24.018777954 +0900
++++ ../talos/./crypto/asn1/p8_pkey.c	2019-09-04 14:49:11.846299572 +0900
+@@ -72,7 +72,7 @@
+ 		if (key->pkey != NULL &&
+ 		    key->pkey->type == V_ASN1_OCTET_STRING &&
+ 		    key->pkey->value.octet_string != NULL)
+-			explicit_bzero(key->pkey->value.octet_string->data,
++			bzero(key->pkey->value.octet_string->data,
+ 			    key->pkey->value.octet_string->length);
+ 	}
+ 	return 1;

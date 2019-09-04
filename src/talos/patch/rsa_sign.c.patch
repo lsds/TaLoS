@@ -1,0 +1,20 @@
+--- ./crypto/rsa/rsa_sign.c	2019-09-04 14:50:24.058778219 +0900
++++ ../talos/./crypto/rsa/rsa_sign.c	2019-09-04 14:49:12.130301456 +0900
+@@ -137,7 +137,7 @@
+ 		*siglen = i;
+ 
+ 	if (type != NID_md5_sha1) {
+-		explicit_bzero(tmps, (unsigned int)j + 1);
++		bzero(tmps, (unsigned int)j + 1);
+ 		free(tmps);
+ 	}
+ 	return (ret);
+@@ -237,7 +237,7 @@
+ 	if (sig != NULL)
+ 		X509_SIG_free(sig);
+ 	if (s != NULL) {
+-		explicit_bzero(s, (unsigned int)siglen);
++		bzero(s, (unsigned int)siglen);
+ 		free(s);
+ 	}
+ 	return ret;

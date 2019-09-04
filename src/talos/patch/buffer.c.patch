@@ -1,0 +1,20 @@
+--- ./crypto/buffer/buffer.c	2019-09-04 14:50:24.034778060 +0900
++++ ../talos/./crypto/buffer/buffer.c	2019-09-04 14:49:11.874299758 +0900
+@@ -91,7 +91,7 @@
+ 		return;
+ 
+ 	if (a->data != NULL) {
+-		explicit_bzero(a->data, a->max);
++		bzero(a->data, a->max);
+ 		free(a->data);
+ 	}
+ 	free(a);
+@@ -157,7 +157,7 @@
+ 	/* we're not shrinking - that case returns above */
+ 	if ((ret != NULL)  && (str->data != NULL)) {
+ 		memcpy(ret, str->data, str->max);
+-		explicit_bzero(str->data, str->max);
++		bzero(str->data, str->max);
+ 		free(str->data);
+ 	}
+ 	if (ret == NULL) {

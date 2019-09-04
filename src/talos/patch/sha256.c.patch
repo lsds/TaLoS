@@ -1,0 +1,20 @@
+--- ./crypto/sha/sha256.c	2019-09-04 14:50:24.058778219 +0900
++++ ../talos/./crypto/sha/sha256.c	2019-09-04 14:49:12.134301483 +0900
+@@ -49,7 +49,7 @@
+ 	SHA224_Init(&c);
+ 	SHA256_Update(&c,d,n);
+ 	SHA256_Final(md,&c);
+-	explicit_bzero(&c,sizeof(c));
++	bzero(&c,sizeof(c));
+ 	return(md);
+ 	}
+ 
+@@ -62,7 +62,7 @@
+ 	SHA256_Init(&c);
+ 	SHA256_Update(&c,d,n);
+ 	SHA256_Final(md,&c);
+-	explicit_bzero(&c,sizeof(c));
++	bzero(&c,sizeof(c));
+ 	return(md);
+ 	}
+ 

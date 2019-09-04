@@ -1,0 +1,11 @@
+--- ./crypto/aes/aes_wrap.c	2019-09-04 14:50:24.010777901 +0900
++++ ../talos/./crypto/aes/aes_wrap.c	2019-09-04 14:47:16.929535762 +0900
+@@ -126,7 +126,7 @@
+ 	if (!iv)
+ 		iv = default_iv;
+ 	if (memcmp(A, iv, 8)) {
+-		explicit_bzero(out, inlen);
++		bzero(out, inlen);
+ 		return 0;
+ 	}
+ 	return inlen;

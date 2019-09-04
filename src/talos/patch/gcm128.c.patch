@@ -1,0 +1,11 @@
+--- ./crypto/modes/gcm128.c	2019-09-04 14:50:24.054778193 +0900
++++ ../talos/./crypto/modes/gcm128.c	2019-09-04 14:49:12.074301085 +0900
+@@ -1533,7 +1533,7 @@
+ void CRYPTO_gcm128_release(GCM128_CONTEXT *ctx)
+ {
+ 	if (ctx) {
+-		explicit_bzero(ctx,sizeof(*ctx));
++		bzero(ctx,sizeof(*ctx));
+ 		free(ctx);
+ 	}
+ }

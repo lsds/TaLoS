@@ -1,0 +1,20 @@
+--- ./crypto/rsa/rsa_saos.c	2019-09-04 14:50:24.058778219 +0900
++++ ../talos/./crypto/rsa/rsa_saos.c	2019-09-04 14:49:12.126301429 +0900
+@@ -97,7 +97,7 @@
+ 	else
+ 		*siglen = i;
+ 
+-	explicit_bzero(s, (unsigned int)j + 1);
++	bzero(s, (unsigned int)j + 1);
+ 	free(s);
+ 	return ret;
+ }
+@@ -142,7 +142,7 @@
+ err:
+ 	ASN1_OCTET_STRING_free(sig);
+ 	if (s != NULL) {
+-		explicit_bzero(s, (unsigned int)siglen);
++		bzero(s, (unsigned int)siglen);
+ 		free(s);
+ 	}
+ 	return ret;

@@ -1,0 +1,38 @@
+--- ./ssl/s3_clnt.c	2019-09-04 14:50:24.070778299 +0900
++++ ../talos/./ssl/s3_clnt.c	2019-09-04 14:49:18.646344685 +0900
+@@ -1899,7 +1899,7 @@
+ 	ret = 1;
+ 
+ err:
+-	explicit_bzero(tmp_buf, sizeof(tmp_buf));
++	bzero(tmp_buf, sizeof(tmp_buf));
+ 	EVP_PKEY_free(pkey);
+ 
+ 	return (ret);
+@@ -1961,7 +1961,7 @@
+ err:
+ 	DH_free(dh_clnt);
+ 	if (key != NULL)
+-		explicit_bzero(key, key_size);
++		bzero(key, key_size);
+ 	free(key);
+ 
+ 	return (ret);
+@@ -2087,7 +2087,7 @@
+ 
+ err:
+ 	if (key != NULL)
+-		explicit_bzero(key, key_size);
++		bzero(key, key_size);
+ 	free(key);
+ 
+ 	BN_CTX_free(bn_ctx);
+@@ -2209,7 +2209,7 @@
+ 	ret = 1;
+ 
+ err:
+-	explicit_bzero(premaster_secret, sizeof(premaster_secret));
++	bzero(premaster_secret, sizeof(premaster_secret));
+ 	EVP_PKEY_free(pub_key);
+ 
+ 	return (ret);

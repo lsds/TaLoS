@@ -1,0 +1,11 @@
+--- ./crypto/evp/bio_enc.c	2019-09-04 14:50:24.046778140 +0900
++++ ../talos/./crypto/evp/bio_enc.c	2019-09-04 14:49:11.942300209 +0900
+@@ -135,7 +135,7 @@
+ 		return (0);
+ 	b = (BIO_ENC_CTX *)a->ptr;
+ 	EVP_CIPHER_CTX_cleanup(&(b->cipher));
+-	explicit_bzero(a->ptr, sizeof(BIO_ENC_CTX));
++	bzero(a->ptr, sizeof(BIO_ENC_CTX));
+ 	free(a->ptr);
+ 	a->ptr = NULL;
+ 	a->init = 0;

@@ -1,0 +1,11 @@
+--- ./crypto/sha/sha1_one.c	2019-09-04 14:50:24.058778219 +0900
++++ ../talos/./crypto/sha/sha1_one.c	2019-09-04 14:49:12.134301483 +0900
+@@ -75,7 +75,7 @@
+ 		return NULL;
+ 	SHA1_Update(&c,d,n);
+ 	SHA1_Final(md,&c);
+-	explicit_bzero(&c,sizeof(c));
++	bzero(&c,sizeof(c));
+ 	return(md);
+ 	}
+ #endif

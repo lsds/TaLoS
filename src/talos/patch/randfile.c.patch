@@ -1,0 +1,11 @@
+--- ./crypto/rand/randfile.c	2019-09-04 14:50:24.058778219 +0900
++++ ../talos/./crypto/rand/randfile.c	2019-09-04 14:49:12.118301377 +0900
+@@ -130,7 +130,7 @@
+ 	}
+ 
+ 	fclose(out);
+-	explicit_bzero(buf, BUFSIZE);
++	bzero(buf, BUFSIZE);
+ 	return ret;
+ }
+ 

@@ -1,0 +1,11 @@
+--- ./crypto/hmac/hm_ameth.c	2019-09-04 14:50:24.054778193 +0900
++++ ../talos/./crypto/hmac/hm_ameth.c	2019-09-04 14:49:12.002300607 +0900
+@@ -83,7 +83,7 @@
+ 
+ 	if (os) {
+ 		if (os->data)
+-			explicit_bzero(os->data, os->length);
++			bzero(os->data, os->length);
+ 		ASN1_OCTET_STRING_free(os);
+ 	}
+ }

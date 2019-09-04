@@ -1,0 +1,15 @@
+--- ./crypto/evp/p5_crpt.c	2019-09-04 14:50:24.050778166 +0900
++++ ../talos/./crypto/evp/p5_crpt.c	2019-09-04 14:49:11.978300448 +0900
+@@ -147,9 +147,9 @@
+ 	    EVP_CIPHER_iv_length(cipher));
+ 	if (!EVP_CipherInit_ex(cctx, cipher, NULL, key, iv, en_de))
+ 		goto err;
+-	explicit_bzero(md_tmp, EVP_MAX_MD_SIZE);
+-	explicit_bzero(key, EVP_MAX_KEY_LENGTH);
+-	explicit_bzero(iv, EVP_MAX_IV_LENGTH);
++	bzero(md_tmp, EVP_MAX_MD_SIZE);
++	bzero(key, EVP_MAX_KEY_LENGTH);
++	bzero(iv, EVP_MAX_IV_LENGTH);
+ 	rv = 1;
+ err:
+ 	EVP_MD_CTX_cleanup(&ctx);

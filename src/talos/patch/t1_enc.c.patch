@@ -1,0 +1,29 @@
+--- ./ssl/t1_enc.c	2019-09-04 14:50:24.074778325 +0900
++++ ../talos/./ssl/t1_enc.c	2019-09-04 14:49:18.710345109 +0900
+@@ -147,7 +147,7 @@
+ tls1_cleanup_key_block(SSL *s)
+ {
+ 	if (s->s3->tmp.key_block != NULL) {
+-		explicit_bzero(s->s3->tmp.key_block,
++		bzero(s->s3->tmp.key_block,
+ 		    s->s3->tmp.key_block_length);
+ 		free(s->s3->tmp.key_block);
+ 		s->s3->tmp.key_block = NULL;
+@@ -348,7 +348,7 @@
+ 	EVP_PKEY_free(mac_key);
+ 	EVP_MD_CTX_cleanup(&ctx);
+ 	EVP_MD_CTX_cleanup(&ctx_tmp);
+-	explicit_bzero(A1, sizeof(A1));
++	bzero(A1, sizeof(A1));
+ 	return ret;
+ }
+ 
+@@ -793,7 +793,7 @@
+ 
+ err:
+ 	if (tmp_block) {
+-		explicit_bzero(tmp_block, key_block_len);
++		bzero(tmp_block, key_block_len);
+ 		free(tmp_block);
+ 	}
+ 	return (ret);

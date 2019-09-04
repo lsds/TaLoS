@@ -1,0 +1,11 @@
+--- ./crypto/gost/gostr341194.c	2019-09-04 14:50:24.050778166 +0900
++++ ../talos/./crypto/gost/gostr341194.c	2019-09-04 14:49:11.990300528 +0900
+@@ -267,7 +267,7 @@
+ 		return 0;
+ 	GOSTR341194_Update(&c, d, n);
+ 	GOSTR341194_Final(md, &c);
+-	explicit_bzero(&c, sizeof(c));
++	bzero(&c, sizeof(c));
+ 	return (md);
+ }
+ #endif

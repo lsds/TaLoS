@@ -1,0 +1,11 @@
+--- ./crypto/evp/e_chacha20poly1305.c	2019-09-04 14:50:24.046778140 +0900
++++ ../talos/./crypto/evp/e_chacha20poly1305.c	2019-09-04 14:49:11.966300368 +0900
+@@ -83,7 +83,7 @@
+ {
+ 	struct aead_chacha20_poly1305_ctx *c20_ctx = ctx->aead_state;
+ 
+-	explicit_bzero(c20_ctx->key, sizeof(c20_ctx->key));
++	bzero(c20_ctx->key, sizeof(c20_ctx->key));
+ 	free(c20_ctx);
+ }
+ 

@@ -1,0 +1,11 @@
+--- ./ssl/d1_lib.c	2019-09-04 14:50:24.070778299 +0900
++++ ../talos/./ssl/d1_lib.c	2019-09-04 14:49:18.594344340 +0900
+@@ -199,7 +199,7 @@
+ 	pqueue_free(s->d1->sent_messages);
+ 	pqueue_free(s->d1->buffered_app_data.q);
+ 
+-	explicit_bzero(s->d1, sizeof *s->d1);
++	bzero(s->d1, sizeof *s->d1);
+ 	free(s->d1);
+ 	s->d1 = NULL;
+ }

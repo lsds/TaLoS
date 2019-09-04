@@ -1,0 +1,11 @@
+--- ./crypto/evp/p_open.c	2019-09-04 14:50:24.050778166 +0900
++++ ../talos/./crypto/evp/p_open.c	2019-09-04 14:49:11.982300474 +0900
+@@ -110,7 +110,7 @@
+ 
+ err:
+ 	if (key != NULL)
+-		explicit_bzero(key, size);
++		bzero(key, size);
+ 	free(key);
+ 	return (ret);
+ }

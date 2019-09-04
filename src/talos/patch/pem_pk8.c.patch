@@ -1,0 +1,11 @@
+--- ./crypto/pem/pem_pk8.c	2019-09-04 14:50:24.058778219 +0900
++++ ../talos/./crypto/pem/pem_pk8.c	2019-09-04 14:49:12.090301191 +0900
+@@ -136,7 +136,7 @@
+ 		}
+ 		p8 = PKCS8_encrypt(nid, enc, kstr, klen, NULL, 0, 0, p8inf);
+ 		if (kstr == buf)
+-			explicit_bzero(buf, klen);
++			bzero(buf, klen);
+ 		PKCS8_PRIV_KEY_INFO_free(p8inf);
+ 		if (isder)
+ 			ret = i2d_PKCS8_bio(bp, p8);
