@@ -1,5 +1,5 @@
---- ./crypto/evp/digest.c	2017-11-28 10:46:51.996404519 +0000
-+++ ../talos/./crypto/evp/digest.c	2017-07-17 11:08:32.237409759 +0100
+--- ./crypto/evp/digest.c	2019-09-04 14:50:24.046778140 +0900
++++ ../talos/./crypto/evp/digest.c	2019-09-04 14:49:11.946300236 +0900
 @@ -129,6 +129,11 @@
  }
  
@@ -24,6 +24,15 @@
  EVP_DigestInit_ex(EVP_MD_CTX *ctx, const EVP_MD *type, ENGINE *impl)
  {
  	EVP_MD_CTX_clear_flags(ctx, EVP_MD_CTX_FLAG_CLEANED);
+@@ -195,7 +205,7 @@
+ 	if (ctx->digest != type) {
+ 		if (ctx->digest && ctx->digest->ctx_size && ctx->md_data &&
+ 		    !EVP_MD_CTX_test_flags(ctx, EVP_MD_CTX_FLAG_REUSE)) {
+-			explicit_bzero(ctx->md_data, ctx->digest->ctx_size);
++			bzero(ctx->md_data, ctx->digest->ctx_size);
+ 			free(ctx->md_data);
+ 			ctx->md_data = NULL;
+ 		}
 @@ -228,6 +238,12 @@
  }
  
@@ -61,3 +70,12 @@
  EVP_MD_CTX_destroy(EVP_MD_CTX *ctx)
  {
  	if (ctx) {
+@@ -365,7 +391,7 @@
+ 		ctx->digest->cleanup(ctx);
+ 	if (ctx->digest && ctx->digest->ctx_size && ctx->md_data &&
+ 	    !EVP_MD_CTX_test_flags(ctx, EVP_MD_CTX_FLAG_REUSE)) {
+-		explicit_bzero(ctx->md_data, ctx->digest->ctx_size);
++		bzero(ctx->md_data, ctx->digest->ctx_size);
+ 		free(ctx->md_data);
+ 	}
+ 	EVP_PKEY_CTX_free(ctx->pctx);

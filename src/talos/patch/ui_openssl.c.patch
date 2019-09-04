@@ -1,5 +1,5 @@
---- ./crypto/ui/ui_openssl.c	2017-11-28 10:46:51.996404519 +0000
-+++ ../talos/./crypto/ui/ui_openssl.c	2017-07-17 11:08:32.257409376 +0100
+--- ./crypto/ui/ui_openssl.c	2019-09-04 14:50:24.062778246 +0900
++++ ../talos/./crypto/ui/ui_openssl.c	2019-09-04 14:49:12.142301536 +0900
 @@ -161,6 +161,12 @@
  	.ui_close_session = close_console,
  };
@@ -31,7 +31,7 @@
  			fflush(tty_out);
  			return 0;
  		}
-@@ -279,7 +285,7 @@
+@@ -279,14 +285,14 @@
  	if (intr_signal == SIGINT)
  		ok = -1;
  	if (!echo)
@@ -39,4 +39,12 @@
 +		my_fprintf(tty_out, "\n");
  	if (ps >= 2 && !echo && !echo_console(ui))
  		ok = 0;
+ 
+ 	if (ps >= 1)
+ 		popsig();
+ 
+-	explicit_bzero(result, BUFSIZ);
++	bzero(result, BUFSIZ);
+ 	return ok;
+ }
  

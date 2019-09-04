@@ -1,5 +1,5 @@
---- ./crypto/pem/pem_pkey.c	2017-11-28 10:46:51.996404519 +0000
-+++ ../talos/./crypto/pem/pem_pkey.c	2017-07-17 11:08:32.253409452 +0100
+--- ./crypto/pem/pem_pkey.c	2019-09-04 14:50:24.058778219 +0900
++++ ../talos/./crypto/pem/pem_pkey.c	2019-09-04 14:49:12.090301191 +0900
 @@ -75,8 +75,33 @@
  
  #include "asn1_locl.h"
@@ -34,3 +34,12 @@
  EVP_PKEY *
  PEM_read_bio_PrivateKey(BIO *bp, EVP_PKEY **x, pem_password_cb *cb, void *u)
  {
+@@ -144,7 +169,7 @@
+ 		PEMerr(PEM_F_PEM_READ_BIO_PRIVATEKEY, ERR_R_ASN1_LIB);
+ err:
+ 	free(nm);
+-	explicit_bzero(data, len);
++	bzero(data, len);
+ 	free(data);
+ 	return (ret);
+ }

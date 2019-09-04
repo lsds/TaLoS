@@ -1,5 +1,5 @@
---- ./crypto/ec/ec_lib.c	2017-11-28 10:46:51.996404519 +0000
-+++ ../talos/./crypto/ec/ec_lib.c	2017-07-17 11:08:32.229409910 +0100
+--- ./crypto/ec/ec_lib.c	2019-09-04 14:50:24.042778113 +0900
++++ ../talos/./crypto/ec/ec_lib.c	2019-09-04 14:49:11.930300130 +0900
 @@ -112,8 +112,11 @@
  	return ret;
  }
@@ -13,3 +13,25 @@
  EC_GROUP_free(EC_GROUP * group)
  {
  	if (!group)
+@@ -152,10 +155,10 @@
+ 	BN_clear_free(&group->cofactor);
+ 
+ 	if (group->seed) {
+-		explicit_bzero(group->seed, group->seed_len);
++		bzero(group->seed, group->seed_len);
+ 		free(group->seed);
+ 	}
+-	explicit_bzero(group, sizeof *group);
++	bzero(group, sizeof *group);
+ 	free(group);
+ }
+ 
+@@ -754,7 +757,7 @@
+ 		point->meth->point_clear_finish(point);
+ 	else if (point->meth->point_finish != 0)
+ 		point->meth->point_finish(point);
+-	explicit_bzero(point, sizeof *point);
++	bzero(point, sizeof *point);
+ 	free(point);
+ }
+ 

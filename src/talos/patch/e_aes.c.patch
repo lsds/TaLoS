@@ -1,5 +1,5 @@
---- ./crypto/evp/e_aes.c	2017-11-28 10:46:51.996404519 +0000
-+++ ../talos/./crypto/evp/e_aes.c	2017-07-17 11:08:32.229409910 +0100
+--- ./crypto/evp/e_aes.c	2019-09-04 14:50:24.046778140 +0900
++++ ../talos/./crypto/evp/e_aes.c	2019-09-04 14:49:11.954300288 +0900
 @@ -62,6 +62,10 @@
  #include "evp_locl.h"
  #include "modes_lcl.h"
@@ -24,3 +24,39 @@
  
  int aesni_set_encrypt_key(const unsigned char *userKey, int bits,
      AES_KEY *key);
+@@ -690,7 +699,7 @@
+ 
+ 	if (gctx->iv != c->iv)
+ 		free(gctx->iv);
+-	explicit_bzero(gctx, sizeof(*gctx));
++	bzero(gctx, sizeof(*gctx));
+ 	return 1;
+ }
+ 
+@@ -972,7 +981,7 @@
+ 
+ 		/* If tag mismatch wipe buffer */
+ 		if (memcmp(ctx->buf, in + len, EVP_GCM_TLS_TAG_LEN)) {
+-			explicit_bzero(out, len);
++			bzero(out, len);
+ 			goto err;
+ 		}
+ 		rv = len;
+@@ -1339,7 +1348,7 @@
+ 			}
+ 		}
+ 		if (rv == -1)
+-			explicit_bzero(out, len);
++			bzero(out, len);
+ 		cctx->iv_set = 0;
+ 		cctx->tag_set = 0;
+ 		cctx->len_set = 0;
+@@ -1417,7 +1426,7 @@
+ {
+ 	struct aead_aes_gcm_ctx *gcm_ctx = ctx->aead_state;
+ 
+-	explicit_bzero(gcm_ctx, sizeof(*gcm_ctx));
++	bzero(gcm_ctx, sizeof(*gcm_ctx));
+ 	free(gcm_ctx);
+ }
+ 

@@ -1,5 +1,5 @@
---- ./crypto/asn1/asn1_lib.c	2017-11-28 10:46:51.992404595 +0000
-+++ ../talos/./crypto/asn1/asn1_lib.c	2017-11-28 12:32:00.153277193 +0000
+--- ./crypto/asn1/asn1_lib.c	2019-09-04 14:50:24.018777954 +0900
++++ ../talos/./crypto/asn1/asn1_lib.c	2019-09-04 14:49:11.834299492 +0900
 @@ -63,6 +63,14 @@
  #include <openssl/asn1.h>
  #include <openssl/err.h>
@@ -33,11 +33,22 @@
  		if (tmp == NULL) {
  			ASN1err(ASN1_F_ASN1_STRING_SET, ERR_R_MALLOC_FAILURE);
  			return (0);
-@@ -438,7 +455,16 @@
+@@ -402,7 +419,7 @@
+ ASN1_STRING_set0(ASN1_STRING *str, void *data, int len)
+ {
+ 	if (str->data != NULL)
+-		explicit_bzero(str->data, str->length);
++		bzero(str->data, str->length);
+ 	free(str->data);
+ 	str->data = data;
+ 	str->length = len;
+@@ -437,8 +454,17 @@
+ 	if (a == NULL)
  		return;
  	if (a->data != NULL && !(a->flags & ASN1_STRING_FLAG_NDEF)) {
- 		explicit_bzero(a->data, a->length);
+-		explicit_bzero(a->data, a->length);
 -		free(a->data);
++		bzero(a->data, a->length);
 +
 +#ifdef COMPILE_WITH_INTEL_SGX
 +        if (sgx_is_within_enclave(a->data, 1)) {

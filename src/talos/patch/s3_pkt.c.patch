@@ -1,17 +1,17 @@
---- ./ssl/s3_pkt.c	2017-12-13 16:41:31.543603029 +0000
-+++ ../talos/./ssl/s3_pkt.c	2017-12-13 16:39:16.426176176 +0000
+--- ./ssl/s3_pkt.c	2019-09-04 14:50:24.074778325 +0900
++++ ../talos/./ssl/s3_pkt.c	2019-04-04 13:57:16.000000000 +0900
 @@ -117,8 +117,15 @@
  #include <openssl/buffer.h>
  #include <openssl/evp.h>
-
+ 
 +#ifdef COMPILE_WITH_INTEL_SGX
 +#include "sgx_trts.h"
 +#endif
 +
  #include "bytestring.h"
-
-+extern void tls_processing_ssl_read(const SSL* s, char* data, int* len);
-+extern void tls_processing_ssl_write(const SSL* s, char* data, int* len);
+ 
++extern void tls_processing_ssl_read(const SSL* s, char* data, unsigned int len);
++extern void tls_processing_ssl_write(const SSL* s, char* data, unsigned int len);
 +
  static int do_ssl3_write(SSL *s, int type, const unsigned char *buf,
      unsigned int len, int create_empty_fragment);
@@ -19,16 +19,16 @@
 @@ -705,6 +712,19 @@
  	memcpy(wr->data, wr->input, wr->length);
  	wr->input = wr->data;
-
+ 
 +	//LOGGING: log wr->data of size wr->length. wr->data contains part
-+	// of the HTTPS response in clear before encryption. There may be
++	// of the HTTPS response in clear before encryption. There may be 
 +	// multiple calls to do_ssl3_write() for a single HTTPS response.
 +	// for the HTTPS response buf is not within the enclave. It is copied just before
 +	// this comment to wr->data. buf also contains the reply headers
 +#ifdef COMPILE_WITH_INTEL_SGX
 +	if (!sgx_is_within_enclave(buf, sizeof(*buf))) {
 +#endif
-+		tls_processing_ssl_write((const SSL*)s, (char*)wr->data, &(wr->length));
++		tls_processing_ssl_write((const SSL*)s, (char*)wr->data, (unsigned int)wr->length);
 +#ifdef COMPILE_WITH_INTEL_SGX
 +	}
 +#endif
@@ -39,7 +39,7 @@
 @@ -954,6 +974,18 @@
  		else
  			n = (unsigned int)len;
-
+ 
 +		//LOGGING: log rr->data of size rr->length. rr->data contains part
 +		// of the HTTPS request in clear after decryption.
 +		// There is only one call to ssl3_read-bytes for a single HTTPS request.
@@ -47,7 +47,7 @@
 +#ifdef COMPILE_WITH_INTEL_SGX
 +		if (!sgx_is_within_enclave(buf, sizeof(*buf))) {
 +#endif
-+			tls_processing_ssl_read((const SSL*)s, (char*)(rr->data+rr->off), &n);
++			tls_processing_ssl_read((const SSL*)s, (char*)(rr->data+rr->off), (unsigned int)n);
 +#ifdef COMPILE_WITH_INTEL_SGX
 +		}
 +#endif

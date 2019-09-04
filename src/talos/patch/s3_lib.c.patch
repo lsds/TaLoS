@@ -1,5 +1,5 @@
---- ./ssl/s3_lib.c	2017-11-28 10:46:52.004404366 +0000
-+++ ../talos/./ssl/s3_lib.c	2017-07-17 11:08:26.841512746 +0100
+--- ./ssl/s3_lib.c	2019-09-04 14:50:24.070778299 +0900
++++ ../talos/./ssl/s3_lib.c	2019-09-04 14:49:18.670344844 +0900
 @@ -1947,6 +1947,12 @@
  	/* end of list */
  };
@@ -23,6 +23,15 @@
  		goto err;
  	memset(s3->rrec.seq_num, 0, sizeof(s3->rrec.seq_num));
  	memset(s3->wrec.seq_num, 0, sizeof(s3->wrec.seq_num));
+@@ -2086,7 +2093,7 @@
+ 	tls1_free_digest_list(s);
+ 	free(s->s3->alpn_selected);
+ 
+-	explicit_bzero(s->s3, sizeof *s->s3);
++	bzero(s->s3, sizeof *s->s3);
+ 	free(s->s3);
+ 	s->s3 = NULL;
+ }
 @@ -2254,7 +2261,7 @@
  				    SSL_R_SSL3_EXT_INVALID_SERVERNAME);
  				return 0;

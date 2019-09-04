@@ -1,5 +1,5 @@
---- ./ssl/ssl_sess.c	2017-11-28 10:46:52.004404366 +0000
-+++ ../talos/./ssl/ssl_sess.c	2017-07-17 11:08:26.857512440 +0100
+--- ./ssl/ssl_sess.c	2019-09-04 14:50:24.074778325 +0900
++++ ../talos/./ssl/ssl_sess.c	2019-09-04 14:49:18.698345030 +0900
 @@ -143,6 +143,19 @@
  
  #include "ssl_locl.h"
@@ -90,6 +90,26 @@
  			SSL_SESSION_free(r);
  		}
  	} else
+@@ -693,8 +721,8 @@
+ 
+ 	CRYPTO_free_ex_data(CRYPTO_EX_INDEX_SSL_SESSION, ss, &ss->ex_data);
+ 
+-	explicit_bzero(ss->master_key, sizeof ss->master_key);
+-	explicit_bzero(ss->session_id, sizeof ss->session_id);
++	bzero(ss->master_key, sizeof ss->master_key);
++	bzero(ss->session_id, sizeof ss->session_id);
+ 	if (ss->sess_cert != NULL)
+ 		ssl_sess_cert_free(ss->sess_cert);
+ 	X509_free(ss->peer);
+@@ -706,7 +734,7 @@
+ 	free(ss->tlsext_ecpointformatlist);
+ 	ss->tlsext_ellipticcurvelist_length = 0;
+ 	free(ss->tlsext_ellipticcurvelist);
+-	explicit_bzero(ss, sizeof(*ss));
++	bzero(ss, sizeof(*ss));
+ 	free(ss);
+ }
+ 
 @@ -757,6 +785,11 @@
  }
  

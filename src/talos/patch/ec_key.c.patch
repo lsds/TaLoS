@@ -1,5 +1,5 @@
---- ./crypto/ec/ec_key.c	2017-11-28 10:46:51.996404519 +0000
-+++ ../talos/./crypto/ec/ec_key.c	2017-07-17 11:08:32.229409910 +0100
+--- ./crypto/ec/ec_key.c	2019-09-04 14:50:24.042778113 +0900
++++ ../talos/./crypto/ec/ec_key.c	2019-09-04 14:49:11.922300076 +0900
 @@ -91,6 +91,11 @@
  }
  
@@ -24,3 +24,12 @@
  EC_KEY_free(EC_KEY * r)
  {
  	int i;
+@@ -122,7 +132,7 @@
+ 
+ 	EC_EX_DATA_free_all_data(&r->method_data);
+ 
+-	explicit_bzero((void *) r, sizeof(EC_KEY));
++	bzero((void *) r, sizeof(EC_KEY));
+ 
+ 	free(r);
+ }

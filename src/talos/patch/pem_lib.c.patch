@@ -1,5 +1,5 @@
---- ./crypto/pem/pem_lib.c	2017-11-28 10:46:51.996404519 +0000
-+++ ../talos/./crypto/pem/pem_lib.c	2017-07-17 11:08:32.253409452 +0100
+--- ./crypto/pem/pem_lib.c	2019-09-04 14:50:24.054778193 +0900
++++ ../talos/./crypto/pem/pem_lib.c	2019-09-04 14:49:12.086301165 +0900
 @@ -71,6 +71,8 @@
  #include <openssl/pkcs12.h>
  #include <openssl/x509.h>
@@ -47,3 +47,59 @@
  PEM_ASN1_write(i2d_of_void *i2d, const char *name, FILE *fp, void *x,
      const EVP_CIPHER *enc, unsigned char *kstr, int klen,
      pem_password_cb *callback, void *u)
+@@ -403,7 +420,7 @@
+ 			goto err;
+ 
+ 		if (kstr == (unsigned char *)buf)
+-			explicit_bzero(buf, PEM_BUFSIZE);
++			bzero(buf, PEM_BUFSIZE);
+ 
+ 		if (strlen(objstr) + 23 + 2 * enc->iv_len + 13 > sizeof buf) {
+ 			PEMerr(PEM_F_PEM_ASN1_WRITE_BIO,
+@@ -434,12 +451,12 @@
+ 	if (i <= 0)
+ 		ret = 0;
+ err:
+-	explicit_bzero(key, sizeof(key));
+-	explicit_bzero(iv, sizeof(iv));
+-	explicit_bzero((char *)&ctx, sizeof(ctx));
+-	explicit_bzero(buf, PEM_BUFSIZE);
++	bzero(key, sizeof(key));
++	bzero(iv, sizeof(iv));
++	bzero((char *)&ctx, sizeof(ctx));
++	bzero(buf, PEM_BUFSIZE);
+ 	if (data != NULL) {
+-		explicit_bzero(data, (unsigned int)dsize);
++		bzero(data, (unsigned int)dsize);
+ 		free(data);
+ 	}
+ 	return (ret);
+@@ -480,8 +497,8 @@
+ 	if (o)
+ 		o = EVP_DecryptFinal_ex(&ctx, &(data[i]), &j);
+ 	EVP_CIPHER_CTX_cleanup(&ctx);
+-	explicit_bzero((char *)buf, sizeof(buf));
+-	explicit_bzero((char *)key, sizeof(key));
++	bzero((char *)buf, sizeof(buf));
++	bzero((char *)key, sizeof(key));
+ 	if (!o) {
+ 		PEMerr(PEM_F_PEM_DO_HEADER, PEM_R_BAD_DECRYPT);
+ 		return (0);
+@@ -640,7 +657,7 @@
+ 	EVP_EncodeFinal(&ctx, buf, &outl);
+ 	if ((outl > 0) && (BIO_write(bp, (char *)buf, outl) != outl))
+ 		goto err;
+-	explicit_bzero(buf, PEM_BUFSIZE * 8);
++	bzero(buf, PEM_BUFSIZE * 8);
+ 	free(buf);
+ 	buf = NULL;
+ 	if ((BIO_write(bp, "-----END ", 9) != 9) ||
+@@ -651,7 +668,7 @@
+ 
+ err:
+ 	if (buf) {
+-		explicit_bzero(buf, PEM_BUFSIZE * 8);
++		bzero(buf, PEM_BUFSIZE * 8);
+ 		free(buf);
+ 	}
+ 	PEMerr(PEM_F_PEM_WRITE_BIO, reason);

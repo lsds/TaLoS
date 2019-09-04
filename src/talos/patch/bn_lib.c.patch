@@ -1,5 +1,5 @@
---- ./crypto/bn/bn_lib.c	2017-11-28 10:46:51.992404595 +0000
-+++ ../talos/./crypto/bn/bn_lib.c	2017-07-17 11:08:32.281408918 +0100
+--- ./crypto/bn/bn_lib.c	2019-09-04 14:50:24.030778034 +0900
++++ ../talos/./crypto/bn/bn_lib.c	2019-09-04 14:49:11.870299731 +0900
 @@ -137,6 +137,12 @@
  }
  #endif
@@ -24,7 +24,19 @@
  BN_num_bits(const BIGNUM *a)
  {
  	int i = a->top - 1;
-@@ -231,6 +241,10 @@
+@@ -221,16 +231,20 @@
+ 		return;
+ 	bn_check_top(a);
+ 	if (a->d != NULL && !(BN_get_flags(a, BN_FLG_STATIC_DATA))) {
+-		explicit_bzero(a->d, a->dmax * sizeof(a->d[0]));
++		bzero(a->d, a->dmax * sizeof(a->d[0]));
+ 		free(a->d);
+ 	}
+ 	i = BN_get_flags(a, BN_FLG_MALLOCED);
+-	explicit_bzero(a, sizeof(BIGNUM));
++	bzero(a, sizeof(BIGNUM));
+ 	if (i)
+ 		free(a);
  }
  
  void
@@ -46,6 +58,15 @@
  BN_new(void)
  {
  	BIGNUM *ret;
+@@ -395,7 +413,7 @@
+ 		if (!a)
+ 			return NULL;
+ 		if (b->d) {
+-			explicit_bzero(b->d, b->dmax * sizeof(b->d[0]));
++			bzero(b->d, b->dmax * sizeof(b->d[0]));
+ 			free(b->d);
+ 		}
+ 		b->d = a;
 @@ -428,6 +446,10 @@
  }
  
