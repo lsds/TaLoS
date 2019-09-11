@@ -365,7 +365,7 @@ The callbacks registered for `tls_processing_register_ssl_read_processing_cb()` 
 The file `logpoint.c` is a minimal example of a TLS processing module that uses this interface to log the TLS communications. To enable it, please define the `DO_LOGGING` macro in `logpoint.c`.
 The Makefiles define a variable `TLSPROCESSINGMODULE` which lists the files that need to be compiled for your module.
 
-Not that, because LibSEAL cannot load existing shared libraries inside an enclave, a recompilation of TaLoS is necessary to use a different module.
+Note that, because TaLoS cannot load existing shared libraries inside an enclave, a recompilation of TaLoS is necessary to use a different module.
 
 ### Asynchronous Enclave Transitions
 
