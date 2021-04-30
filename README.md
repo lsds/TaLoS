@@ -1,7 +1,5 @@
 # TaLoS: Efficient TLS Termination Inside SGX Enclaves for Existing Applications
 
-[![Jenkins Status](https://wwwpub.zih.tu-dresden.de/~krahn/ci/talos/status.svg)](https://wwwpub.zih.tu-dresden.de/~krahn/ci/talos/build.xml)
-
 TaLoS<sup>[1](#talosfootnote)</sup> is a TLS library that allows existing
 applications (with an OpenSSL/LibreSSL interface) to securely terminate their
 TLS connection. For this, TaLoS places security-sensistive code and data of the
@@ -365,7 +363,7 @@ The callbacks registered for `tls_processing_register_ssl_read_processing_cb()` 
 The file `logpoint.c` is a minimal example of a TLS processing module that uses this interface to log the TLS communications. To enable it, please define the `DO_LOGGING` macro in `logpoint.c`.
 The Makefiles define a variable `TLSPROCESSINGMODULE` which lists the files that need to be compiled for your module.
 
-Not that, because LibSEAL cannot load existing shared libraries inside an enclave, a recompilation of TaLoS is necessary to use a different module.
+Note that, because TaLoS cannot load existing shared libraries inside an enclave, a recompilation of TaLoS is necessary to use a different module.
 
 ### Asynchronous Enclave Transitions
 
