@@ -26,17 +26,17 @@
 // this function must be defined by your TLS processing module
 extern void tls_processing_module_init(void);
 
-static void (*ssl_read_processing_cb)(const SSL*, char*, int*) = NULL;
-static void (*ssl_write_processing_cb)(const SSL*, char*, int*) = NULL;
+static void (*ssl_read_processing_cb)(const SSL*, char*, unsigned int*) = NULL;
+static void (*ssl_write_processing_cb)(const SSL*, char*, unsigned int*) = NULL;
 static void (*set_ssl_type_cb)(const void*, const long) = NULL;
 static void (*new_connection_cb)(const SSL*) = NULL;
 static void (*free_connection_cb)(const SSL*) = NULL;
 
-void tls_processing_register_ssl_read_processing_cb(void (*cb)(const SSL*, char*, int*)) {
+void tls_processing_register_ssl_read_processing_cb(void (*cb)(const SSL*, char*, unsigned int*)) {
 	ssl_read_processing_cb = cb;
 }
 
-void tls_processing_register_ssl_write_processing_cb(void (*cb)(const SSL*, char*, int*)) {
+void tls_processing_register_ssl_write_processing_cb(void (*cb)(const SSL*, char*, unsigned int*)) {
 	ssl_write_processing_cb = cb;
 }
 
@@ -62,12 +62,12 @@ void ecall_tls_processing_module_init(void) {
 }
 
 // called by ssl3_read_bytes() in ssl/s3_pkt.c when data is read from the TLS connection socket
-void tls_processing_ssl_read(const SSL* s, char* data, int* len) {
+void tls_processing_ssl_read(const SSL* s, char* data, unsigned int* len) {
 	CHECK_AND_CALL_CB(ssl_read_processing_cb, s, data, len);
 }
 
 // called by do_ssl3_write() in ssl/s3_pkt.c when data is read from the TLS connection socket
-void tls_processing_ssl_write(const SSL* s, char* data, int* len) {
+void tls_processing_ssl_write(const SSL* s, char* data, unsigned int* len) {
 	CHECK_AND_CALL_CB(ssl_write_processing_cb, s, data, len);
 }
 
