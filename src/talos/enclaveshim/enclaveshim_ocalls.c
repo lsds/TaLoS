@@ -1120,10 +1120,10 @@ int my_stat(const char *path, struct stat *buf) {
 
 /******************** TIME ********************/
 
-int gettimeofday(struct timeval *tv, void *tz) {
+int gettimeofday(struct timeval *tv, struct timezone *tz) {
 	return 0;
 	int ret = 0;
-	sgx_status_t s = ocall_gettimeofday(&ret, tv, (struct timezone*)tz);
+	sgx_status_t s = ocall_gettimeofday(&ret, tv, tz);
 	if (s != SGX_SUCCESS) {
 		my_printf("%s:%s:%i error %d\n", __FILE__, __func__, __LINE__, s);
 	}
